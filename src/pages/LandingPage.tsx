@@ -21,8 +21,9 @@ import { keyframes } from "@emotion/react"
 import { Toaster } from "@/components/ui/toaster"
 import * as React from "react"
 import { useNavigate, Link } from "react-router-dom"
-import { getActiveRegistration, getTestimonials as getStoredTestimonials, type Testimonial, type OpenRegistration } from "@/store"
-import { getStoredArticles, type StoredArticle } from "@/data/articles"
+import { getActiveRegistration, getTestimonials as getStoredTestimonials, seedTestimonials as seedTestimonialsApi, recordVisit, getActivePosters as fetchActivePosters, type Testimonial, type OpenRegistration, type AdPoster } from "@/store"
+import { getStoredArticles, seedArticles, type StoredArticle } from "@/data/articles"
+import { seedTestimonials, seedArticles as seedArticleData, getFallbackRegistration } from "@/data/seedData"
 import {
   LuShield,
   LuAward,
@@ -44,13 +45,13 @@ import {
   LuMonitor,
   LuCalendarDays,
   LuArrowRight,
-  LuUsers,
   LuBriefcase,
   LuZap,
   LuMapPin,
   LuMail,
 } from "react-icons/lu"
 import { FaWhatsapp } from "react-icons/fa"
+import LeafletMap, { type MapLocation } from "@/components/LeafletMap"
 
 const programs = [
   {
@@ -168,27 +169,6 @@ const advantages = [
   { icon: LuWrench, title: "Fasilitas Lengkap", desc: "Peralatan praktik lengkap untuk pembelajaran optimal" },
 ]
 
-const testimonials = [
-  {
-    name: "Agus H.",
-    role: "Alumni — Bekerja di Bandara Soekarno-Hatta",
-    text: "Sekolah AVSEC di sini jelas dari segi harga dan lama pendidikan dibanding sama tempat lain sudah mahal terus lama ehh ujungnya sama aja dapet lisensi doang",
-    avatar: "AH",
-  },
-  {
-    name: "Dhofar I.",
-    role: "Alumni — Personel AVSEC Bandara Juanda",
-    text: "Hasil obrolan dengan temen2 di tempat kerja yang sebelumnya dari berbagai lemdik, terus terang lemdik ini yg paling masuk akal",
-    avatar: "DI",
-  },
-  {
-    name: "Denny S.",
-    role: "Alumni — Personel AVSEC Bandara Ngurah Rai",
-    text: "Mantab disediakan kopi gratis bebas refill biar belajarnya semangat",
-    avatar: "DS",
-  },
-]
-
 const legalitas = [
   {
     title: "IZIN AVSEC KEMENHUB",
@@ -208,16 +188,209 @@ const whyUsImage = "/image.png"
 const ctaBg = "https://images.pexels.com/photos/11047510/pexels-photo-11047510.jpeg?auto=compress&cs=tinysrgb&h=650&w=940"
 const articleImage = "/image copy 3.jpg"
 
+// --- Ad Poster Overlay ---
+function PosterOverlay({ onClose }: { onClose: () => void }) {
+  const [posters, setPosters] = React.useState<AdPoster[]>([])
+  const [current, setCurrent] = React.useState(0)
+  const isDesktop = useBreakpointValue({ base: false, md: true })
+  const touchStartX = React.useRef(0)
+
+  const allImages = React.useMemo(
+    () => posters.flatMap((p) => p.images.map((img) => ({ img, title: p.title }))),
+    [posters]
+  )
+
+  const perView = isDesktop ? 2 : 1
+  const maxIndex = Math.max(0, allImages.length - perView)
+
+  React.useEffect(() => {
+    fetchActivePosters().then(setPosters)
+  }, [])
+
+  React.useEffect(() => {
+    if (allImages.length <= perView) return
+    const interval = setInterval(() => {
+      setCurrent((prev) => (prev >= maxIndex ? 0 : prev + 1))
+    }, 4000)
+    return () => clearInterval(interval)
+  }, [allImages.length, perView, maxIndex])
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const diff = touchStartX.current - e.changedTouches[0].clientX
+    if (Math.abs(diff) < 50) return
+    if (diff > 0) {
+      setCurrent((prev) => (prev >= maxIndex ? 0 : prev + 1))
+    } else {
+      setCurrent((prev) => (prev <= 0 ? maxIndex : prev - 1))
+    }
+  }
+
+  if (allImages.length === 0) return null
+
+  return (
+    <Box
+      position="fixed"
+      inset="0"
+      zIndex="overlay"
+      bg="blackAlpha.900"
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+      p={{ base: "4", md: "8" }}
+      onClick={onClose}
+    >
+      <Box
+        position="relative"
+        display="flex"
+        alignItems="center"
+        justifyContent="center"
+        w="full"
+        maxW={{ base: "500px", md: "1000px" }}
+        onClick={(e) => e.stopPropagation()}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        <Box
+          position="absolute"
+          top={{ base: "-8", md: "-10" }}
+          right="0"
+          cursor="pointer"
+          onClick={onClose}
+          color="whiteAlpha.800"
+          _hover={{ color: "white", transform: "scale(1.1)" }}
+          zIndex="docked"
+          fontSize={{ base: "3xl", md: "4xl" }}
+          lineHeight="1"
+          transition="all 0.2s"
+          w={{ base: "10", md: "12" }}
+          h={{ base: "10", md: "12" }}
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+        >
+          ×
+        </Box>
+
+        {/* Slide track */}
+        <Box
+          w="full"
+          overflow="hidden"
+          borderRadius="lg"
+        >
+          <HStack
+            gap="3"
+            transition="transform 0.5s ease"
+            style={{
+              transform: `translateX(-${current * (100 / perView)}%)`,
+            }}
+          >
+            {allImages.map((item, i) => (
+              <Box
+                key={i}
+                flexShrink="0"
+                w={{ base: "full", md: "calc(50% - 6px)" }}
+                maxH="80vh"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+              >
+                <Image
+                  src={item.img}
+                  alt={item.title}
+                  w="full"
+                  maxH="80vh"
+                  objectFit="contain"
+                  borderRadius="lg"
+                />
+              </Box>
+            ))}
+          </HStack>
+        </Box>
+
+        {/* Navigation arrows for desktop */}
+        {allImages.length > perView && isDesktop && (
+          <>
+            <Box
+              position="absolute"
+              left="-4"
+              top="50%"
+              transform="translateY(-50%)"
+              cursor="pointer"
+              onClick={(e) => { e.stopPropagation(); setCurrent((prev) => (prev <= 0 ? maxIndex : prev - 1)) }}
+              color="whiteAlpha.700"
+              _hover={{ color: "white", transform: "translateY(-50%) scale(1.15)" }}
+              zIndex="docked"
+              fontSize="3xl"
+              lineHeight="1"
+              transition="all 0.2s"
+              w="10"
+              h="10"
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              userSelect="none"
+            >
+              ‹
+            </Box>
+            <Box
+              position="absolute"
+              right="-4"
+              top="50%"
+              transform="translateY(-50%)"
+              cursor="pointer"
+              onClick={(e) => { e.stopPropagation(); setCurrent((prev) => (prev >= maxIndex ? 0 : prev + 1)) }}
+              color="whiteAlpha.700"
+              _hover={{ color: "white", transform: "translateY(-50%) scale(1.15)" }}
+              zIndex="docked"
+              fontSize="3xl"
+              lineHeight="1"
+              transition="all 0.2s"
+              w="10"
+              h="10"
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              userSelect="none"
+            >
+              ›
+            </Box>
+          </>
+        )}
+
+        {/* Dot indicators */}
+        {allImages.length > perView && (
+          <HStack position="absolute" bottom="4" left="50%" transform="translateX(-50%)" gap="2" zIndex="docked">
+            {Array.from({ length: maxIndex + 1 }).map((_, i) => (
+              <Box
+                key={i}
+                w={i === current ? "8" : "2"}
+                h="2"
+                bg={i === current ? "orange.400" : "whiteAlpha.400"}
+                borderRadius="full"
+                transition="all 0.3s"
+                cursor="pointer"
+                onClick={(e) => { e.stopPropagation(); setCurrent(i) }}
+              />
+            ))}
+          </HStack>
+        )}
+      </Box>
+    </Box>
+  )
+}
+
 const stats = [
-  { icon: LuUsers, value: "500+", label: "Alumni Tersalurkan" },
-  { icon: LuBriefcase, value: "15+", label: "Mitra Bandara" },
+  { icon: LuBriefcase, value: "15+", label: "Operator Penerbangan" },
   { icon: LuAward, value: "100%", label: "Lisensi Resmi" },
   { icon: LuClock, value: "1", label: "Bulan Cukup" },
 ]
 
 const marqueeItems = [
   "Resmi KEMENHUB",
-  "500+ Alumni",
   "Lisensi AVSEC",
   "Fasilitas Lengkap",
   "Proses Cepat",
@@ -249,6 +422,7 @@ function NavBar({ onDaftar }: { onDaftar: () => void }) {
     { label: "Biaya", target: "biaya" },
     { label: "Legalitas", target: "legalitas" },
     { label: "Artikel", target: "artikel" },
+    { label: "Lokasi", target: "lokasi" },
     { label: "Kontak", target: "kontak" },
   ]
 
@@ -352,7 +526,7 @@ function StatsBar() {
   return (
     <Box bg="white" py="10" position="relative" zIndex="2">
       <Container maxW="7xl">
-        <Grid templateColumns={{ base: "repeat(2, 1fr)", md: "repeat(4, 1fr)" }} gap="6">
+        <Grid templateColumns={{ base: "repeat(2, 1fr)", md: "repeat(3, 1fr)" }} gap="6">
           {stats.map((stat) => (
             <VStack key={stat.label} gap="2" textAlign="center" py="4">
               <Box
@@ -385,10 +559,32 @@ function StatsBar() {
 
 function HeroSection({ onDaftar }: { onDaftar: () => void }) {
   const [reg, setReg] = React.useState<OpenRegistration | null>(null)
+  const [posters, setPosters] = React.useState<AdPoster[]>([])
+  const [heroSlide, setHeroSlide] = React.useState(0)
+  const [zoomImage, setZoomImage] = React.useState<string | null>(null)
 
   React.useEffect(() => {
-    getActiveRegistration().then(setReg)
+    getActiveRegistration()
+      .then(setReg)
+      .catch(() => {
+        const fb = getFallbackRegistration()
+        setReg({ id: "fallback", month: fb.month, year: fb.year, createdAt: new Date().toISOString() })
+      })
+    fetchActivePosters().then(setPosters)
   }, [])
+
+  const heroSlides: { src: string; isPoster: boolean }[] = [
+    { src: heroImage, isPoster: false },
+    ...posters.flatMap((p) => p.images.map((img) => ({ src: img, isPoster: true }))),
+  ]
+
+  React.useEffect(() => {
+    if (heroSlides.length <= 1) return
+    const interval = setInterval(() => {
+      setHeroSlide((prev) => (prev + 1) % heroSlides.length)
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [heroSlides.length])
 
   const angkatanLabel = reg ? `Angkatan ${reg.month} ${reg.year}` : "Angkatan Juli 2026"
   return (
@@ -503,57 +699,111 @@ function HeroSection({ onDaftar }: { onDaftar: () => void }) {
               borderRadius="full"
               filter="blur(80px)"
             />
-            <Box position="relative">
-              <Image
-                src={heroImage}
-                alt="Personel AVSEC"
-                borderRadius="3xl"
-                objectFit="cover"
-                w="full"
-                h="520px"
-                shadow="2xl"
-                borderWidth="2px"
-                borderColor="whiteAlpha.200"
-              />
-              <Box
-                position="absolute"
-                bottom="-5"
-                left="-5"
-                bg="white"
-                borderRadius="2xl"
-                p="5"
-                shadow="2xl"
-                maxW="xs"
-              >
-                <HStack gap="3">
-                  <Box bg="green.100" borderRadius="xl" p="2.5">
-                    <Icon color="green.600" fontSize="xl"><LuCircleCheck /></Icon>
-                  </Box>
-                  <VStack gap="0" alignItems="flex-start">
-                    <Text fontWeight="bold" fontSize="sm" color="gray.800">Resmi KEMENHUB</Text>
-                    <Text fontSize="xs" color="gray.500">Izin No. I/LD-AVSEC.070/DKP/V/2018</Text>
-                  </VStack>
+            <Box position="relative" h="520px" w="full" overflow="hidden" borderRadius="3xl">
+              {heroSlides.map((slide, i) => (
+                <Image
+                  key={i}
+                  src={slide.src}
+                  alt={slide.isPoster ? "Poster Iklan" : "Personel AVSEC"}
+                  position="absolute"
+                  inset="0"
+                  w="full"
+                  h="full"
+                  objectFit={slide.isPoster ? "contain" : "cover"}
+                  opacity={i === heroSlide ? 1 : 0}
+                  transition="opacity 0.8s ease"
+                  style={{ display: i === heroSlide ? "block" : "none" }}
+                  cursor="pointer"
+                  onClick={() => setZoomImage(slide.src)}
+                  _hover={{ transform: "scale(1.02)" }}
+                />
+              ))}
+              {heroSlides.length > 1 && (
+                <HStack position="absolute" bottom="4" left="50%" transform="translateX(-50%)" gap="2" zIndex="1">
+                  {heroSlides.map((_, i) => (
+                    <Box
+                      key={i}
+                      w={i === heroSlide ? "8" : "2"}
+                      h="2"
+                      bg={i === heroSlide ? "orange.400" : "whiteAlpha.400"}
+                      borderRadius="full"
+                      transition="all 0.3s"
+                      cursor="pointer"
+                      onClick={() => setHeroSlide(i)}
+                    />
+                  ))}
                 </HStack>
-              </Box>
-              <Box
-                position="absolute"
-                top="-5"
-                right="-5"
-                bg="orange.500"
-                borderRadius="2xl"
-                p="4"
-                shadow="2xl"
-              >
-                <VStack gap="0" alignItems="center">
-                  <Text fontWeight="black" fontSize="2xl" color="white" lineHeight="1">500+</Text>
-                  <Text fontSize="xs" color="orange.100" fontWeight="medium">Alumni</Text>
-                </VStack>
-              </Box>
+              )}
             </Box>
+            <Box
+              position="absolute"
+              bottom="-5"
+              left="-5"
+              bg="white"
+              borderRadius="2xl"
+              p="5"
+              shadow="2xl"
+              maxW="xs"
+            >
+              <HStack gap="3">
+                <Box bg="green.100" borderRadius="xl" p="2.5">
+                  <Icon color="green.600" fontSize="xl"><LuCircleCheck /></Icon>
+                </Box>
+                <VStack gap="0" alignItems="flex-start">
+                  <Text fontWeight="bold" fontSize="sm" color="gray.800">Resmi KEMENHUB</Text>
+                  <Text fontSize="xs" color="gray.500">Izin No. I/LD-AVSEC.070/DKP/V/2018</Text>
+                </VStack>
+              </HStack>
+            </Box>
+
           </Box>
         </Grid>
         
       </Container>
+
+      {zoomImage && (
+        <Box
+          position="fixed"
+          inset="0"
+          zIndex="overlay"
+          bg="blackAlpha.900"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          p={{ base: "4", md: "8" }}
+          onClick={() => setZoomImage(null)}
+        >
+          <Box
+            position="absolute"
+            top={{ base: "-8", md: "-10" }}
+            right={{ base: "2", md: "4" }}
+            cursor="pointer"
+            onClick={() => setZoomImage(null)}
+            color="whiteAlpha.800"
+            _hover={{ color: "white", transform: "scale(1.1)" }}
+            zIndex="docked"
+            fontSize={{ base: "3xl", md: "4xl" }}
+            lineHeight="1"
+            transition="all 0.2s"
+            w={{ base: "10", md: "12" }}
+            h={{ base: "10", md: "12" }}
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+          >
+            ×
+          </Box>
+          <Image
+            src={zoomImage}
+            alt="Gambar penuh"
+            maxW="90vw"
+            maxH="90vh"
+            objectFit="contain"
+            borderRadius="lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </Box>
+      )}
       
       
     </Box>
@@ -697,7 +947,17 @@ function TestimoniSection() {
   const [testimonials, setTestimonials] = React.useState<Testimonial[]>([])
 
   React.useEffect(() => {
-    getStoredTestimonials().then(setTestimonials)
+    getStoredTestimonials()
+      .then((data) => {
+        if (data.length === 0) {
+          seedTestimonialsApi()
+            .then(() => getStoredTestimonials().then(setTestimonials))
+            .catch(() => setTestimonials(seedTestimonials))
+        } else {
+          setTestimonials(data)
+        }
+      })
+      .catch(() => setTestimonials(seedTestimonials))
   }, [])
 
   return (
@@ -1058,7 +1318,17 @@ function ArticleSection() {
   const [articleList, setArticleList] = React.useState<StoredArticle[]>([])
 
   React.useEffect(() => {
-    getStoredArticles().then(setArticleList)
+    getStoredArticles()
+      .then((data) => {
+        if (data.length === 0) {
+          seedArticles()
+            .then(() => getStoredArticles().then(setArticleList))
+            .catch(() => setArticleList(seedArticleData))
+        } else {
+          setArticleList(data)
+        }
+      })
+      .catch(() => setArticleList(seedArticleData))
   }, [])
 
   return (
@@ -1127,7 +1397,12 @@ function CTASection({ onDaftar }: { onDaftar: () => void }) {
   const [reg, setReg] = React.useState<OpenRegistration | null>(null)
 
   React.useEffect(() => {
-    getActiveRegistration().then(setReg)
+    getActiveRegistration()
+      .then(setReg)
+      .catch(() => {
+        const fb = getFallbackRegistration()
+        setReg({ id: "fallback", month: fb.month, year: fb.year, createdAt: new Date().toISOString() })
+      })
   }, [])
 
   const angkatanLabel = reg ? `ANGKATAN ${reg.month.toUpperCase()} ${reg.year}` : "ANGKATAN JULI 2026"
@@ -1191,6 +1466,162 @@ function CTASection({ onDaftar }: { onDaftar: () => void }) {
   )
 }
 
+function LocationSection() {
+  const [activeIdx, setActiveIdx] = React.useState(-1)
+
+  const locations: { icon: typeof LuMapPin; title: string; address: string; color: string }[] = [
+    {
+      icon: LuMapPin,
+      title: "Posko Pendaftaran",
+      address: "Perumahan Permata Hijau Pratama Blok K22, Dusun Candimas, Natar, Lampung Selatan",
+      color: "blue",
+    },
+    {
+      icon: LuPlane,
+      title: "Lokasi Diklat",
+      address: "Jl. Husein Sastra Negara Duta Niaga 2 No. 3, Jurumudi, Kec. Benda, Kota Tangerang",
+      color: "orange",
+    },
+  ]
+
+  const mapLocations: MapLocation[] = [
+    { lat: -5.2606343, lng: 105.1770205, title: "Posko Pendaftaran", address: locations[0].address, color: "#3182ce" },
+    { lat: -6.1331516, lng: 106.6860092, title: "Lokasi Diklat", address: locations[1].address, color: "#dd6b20" },
+  ]
+
+  const active = activeIdx >= 0 ? locations[activeIdx] : null
+
+  return (
+    <Box id="lokasi" py={{ base: "16", md: "24" }} bg="gray.50">
+      <Container maxW="7xl">
+        <VStack gap="4" mb="12" textAlign="center">
+          <Badge colorPalette="blue" size="lg" px="4" borderRadius="full">Lokasi Kami</Badge>
+          <Heading fontSize={{ base: "3xl", md: "4xl" }} fontWeight="bold" color="gray.900">
+            Posko Pendaftaran & Lokasi Diklat
+          </Heading>
+          <Text color="gray.600" maxW="2xl" fontSize="lg">
+            Kunjungi kami untuk informasi lebih lanjut atau proses pendaftaran langsung
+          </Text>
+        </VStack>
+
+        <Grid templateColumns={{ base: "1fr", lg: "1fr 1.3fr" }} gap="8" maxW="6xl" mx="auto" alignItems="stretch">
+          {/* Left: location cards */}
+          <VStack gap="4" alignItems="stretch">
+            {locations.map((loc, idx) => {
+              const isActive = idx === activeIdx
+              return (
+                <Box
+                  key={loc.title}
+                  bg={isActive ? "white" : "white"}
+                  borderRadius="2xl"
+                  overflow="hidden"
+                  shadow={isActive ? "xl" : "sm"}
+                  borderWidth="2px"
+                  borderColor={isActive ? `${loc.color}.400` : "gray.100"}
+                  cursor="pointer"
+                  onClick={() => setActiveIdx(idx)}
+                  _hover={{ shadow: "lg", transform: "translateY(-2px)" }}
+                  transition="all 0.3s ease"
+                  flex="1"
+                >
+                  <Box h="2" bgGradient="to-r" gradientFrom={`${loc.color}.500`} gradientTo={`${loc.color}.600`} />
+                  <Box p="6">
+                    <HStack gap="4" mb="4">
+                      <Box bg={`${loc.color}.50`} borderRadius="2xl" p="3" flexShrink="0">
+                        <Icon fontSize="xl" color={`${loc.color}.600`}>
+                          <loc.icon />
+                        </Icon>
+                      </Box>
+                      <Heading fontSize="lg" fontWeight="bold" color="gray.900">{loc.title}</Heading>
+                    </HStack>
+                    <Text color="gray.600" fontSize="sm" lineHeight="1.7" mb="5">
+                      {loc.address}
+                    </Text>
+                    <Button
+                      as="a"
+                      href={`https://www.google.com/maps/search/?api=1&query=${mapLocations[idx].lat},${mapLocations[idx].lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      colorPalette={loc.color}
+                      variant="outline"
+                      w="full"
+                      size="sm"
+                    >
+                      Lihat di Google Maps
+                      <Icon><LuArrowRight /></Icon>
+                    </Button>
+                  </Box>
+                </Box>
+              )
+            })}
+          </VStack>
+
+          {/* Right: interactive Leaflet map */}
+          <Box
+            borderRadius="2xl"
+            overflow="hidden"
+            shadow="xl"
+            borderWidth="1px"
+            borderColor="gray.200"
+            minH={{ base: "300px", lg: "450px" }}
+            h="full"
+            position="relative"
+          >
+            <LeafletMap locations={mapLocations} activeIndex={activeIdx} />
+            <Box
+              position="absolute"
+              top="4"
+              left="4"
+              zIndex={1000}
+              bg="white"
+              borderRadius="xl"
+              px="4"
+              py="2"
+              shadow="lg"
+            >
+              <HStack gap="2">
+                <Box
+                  bg={active ? `${active.color}.500` : "gray.400"}
+                  borderRadius="full"
+                  w="3"
+                  h="3"
+                  flexShrink="0"
+                />
+                <Text fontSize="sm" fontWeight="bold" color="gray.800">
+                  {active ? active.title : "Semua Lokasi"}
+                </Text>
+              </HStack>
+            </Box>
+            {activeIdx >= 0 && (
+              <Box
+                position="absolute"
+                bottom="4"
+                left="4"
+                zIndex={1000}
+                bg="white"
+                borderRadius="xl"
+                shadow="lg"
+                as="button"
+                px="4"
+                py="2"
+                onClick={() => setActiveIdx(-1)}
+                _hover={{ bg: "gray.50" }}
+                cursor="pointer"
+                transition="all 0.2s"
+              >
+                <HStack gap="2">
+                  <Icon color="gray.700"><LuMapPin /></Icon>
+                  <Text fontSize="sm" fontWeight="semibold" color="gray.700">Tampilkan Semua Lokasi</Text>
+                </HStack>
+              </Box>
+            )}
+          </Box>
+        </Grid>
+      </Container>
+    </Box>
+  )
+}
+
 function ContactSection() {
   return (
     <Box id="kontak" py={{ base: "16", md: "24" }} bg="white">
@@ -1225,8 +1656,8 @@ function ContactSection() {
             </VStack>
             <HStack gap="3" mt="2">
               {[
-                { icon: LuFacebook, href: "#" },
-                { icon: LuInstagram, href: "https://instagram.com/aeroforte.id" },
+                { icon: LuFacebook, href: "https://www.facebook.com/profile.php?id=61575121584172" },
+                { icon: LuInstagram, href: "https://www.instagram.com/diklatavsecindonesia?stkn=cTd6bm9kcnQ1MjNm" },
                 { icon: LuYoutube, href: "#" },
               ].map((s, i) => (
                 <Box
@@ -1349,7 +1780,7 @@ function Footer() {
         </Grid>
         <Separator borderColor="gray.700" />
         <Text textAlign="center" fontSize="xs" mt="6">
-          Copyright © 2024 AERO FORTE INDONESIA
+          Copyright © 2026 AERO FORTE INDONESIA. Powered by Garnusa Studio Technology.
         </Text>
       </Container>
     </Box>
@@ -1443,6 +1874,46 @@ export default function LandingPage() {
   const navigate = useNavigate()
   const [syaratOpen, setSyaratOpen] = React.useState(false)
   const [syaratIdx, setSyaratIdx] = React.useState<number | null>(null)
+  const [posterOpen, setPosterOpen] = React.useState(true)
+  const [promoOpen, setPromoOpen] = React.useState(false)
+  const promoVideoRef = React.useRef<HTMLVideoElement>(null)
+  const playCountRef = React.useRef(0)
+  const [hasPosters, setHasPosters] = React.useState(false)
+
+  React.useEffect(() => {
+    fetchActivePosters().then((ps) => {
+      setHasPosters(ps.length > 0)
+      if (ps.length === 0) {
+        setPromoOpen(true)
+      }
+    })
+    recordVisit("/")
+  }, [])
+
+  React.useEffect(() => {
+    if (!posterOpen && hasPosters) {
+      setPromoOpen(true)
+    }
+  }, [posterOpen, hasPosters])
+
+  const closePoster = () => setPosterOpen(false)
+
+  const closePromo = () => {
+    setPromoOpen(false)
+  }
+
+  const handleVideoEnded = () => {
+    playCountRef.current += 1
+    if (playCountRef.current >= 2) {
+      closePromo()
+    } else {
+      const v = promoVideoRef.current
+      if (v) {
+        v.currentTime = 0
+        v.play()
+      }
+    }
+  }
 
   const openSyarat = (idx: number) => {
     setSyaratIdx(idx)
@@ -1454,6 +1925,67 @@ export default function LandingPage() {
   return (
     <Box bg="white" minH="100vh">
       <NavBar onDaftar={goDaftar} />
+
+      {posterOpen && hasPosters && (
+        <PosterOverlay onClose={closePoster} />
+      )}
+
+      {promoOpen && (
+        <Box
+          position="fixed"
+          inset="0"
+          zIndex="overlay"
+          bg="blackAlpha.900"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          p={{ base: "4", md: "8" }}
+          onClick={() => closePromo()}
+        >
+          <Box
+            position="relative"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            w="full"
+            maxW={{ base: "500px", md: "900px" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Box
+              position="absolute"
+              top={{ base: "-8", md: "-10" }}
+              right="0"
+              cursor="pointer"
+              onClick={() => closePromo()}
+              color="whiteAlpha.800"
+              _hover={{ color: "white", transform: "scale(1.1)" }}
+              zIndex="docked"
+              fontSize={{ base: "3xl", md: "4xl" }}
+              lineHeight="1"
+              transition="all 0.2s"
+              w={{ base: "10", md: "12" }}
+              h={{ base: "10", md: "12" }}
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+            >
+              ×
+            </Box>
+            <video
+              ref={promoVideoRef}
+              src="/videopromosi.webm"
+              autoPlay
+              muted
+              controls
+              w="full"
+              h="auto"
+              maxH="80vh"
+              style={{ display: "block", borderRadius: "0.5rem", objectFit: "contain", width: "100%" }}
+              onEnded={handleVideoEnded}
+            />
+          </Box>
+        </Box>
+      )}
       <HeroSection onDaftar={goDaftar} />
       <StatsBar />
       <HowItWorksSection />
@@ -1464,6 +1996,7 @@ export default function LandingPage() {
       <WhyUsSection />
       <ArticleSection />
       <CTASection onDaftar={goDaftar} />
+      <LocationSection />
       <ContactSection />
       <Footer />
       <SyaratModal

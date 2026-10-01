@@ -69,13 +69,13 @@ export default function SuperAdminReports() {
       const links: Record<string, DocumentLink | null> = {}
       const counts: Record<string, number> = {}
       await Promise.all(list.map(async (s) => {
-        links[s.id] = await getDocumentLinkByStudentId(s.id)
-        const docs = await getDocumentsByStudentId(s.id)
+        links[s.id] = await getDocumentLinkByStudentId(s.id).catch(() => null)
+        const docs = await getDocumentsByStudentId(s.id).catch(() => [])
         counts[s.id] = docs.length
       }))
       setLinkCache(links)
       setDocCountCache(counts)
-    })
+    }).catch(() => {})
   }, [])
 
   const refreshLink = async (studentId: string) => {

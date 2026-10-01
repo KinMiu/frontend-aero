@@ -23,7 +23,7 @@ export default function ManageOfficials() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
-  const refresh = () => getOfficials().then(setOfficials)
+  const refresh = () => getOfficials().then(setOfficials).catch(() => {})
 
   useEffect(() => {
     refresh()

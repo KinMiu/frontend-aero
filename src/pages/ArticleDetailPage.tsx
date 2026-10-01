@@ -34,6 +34,7 @@ import {
 } from "react-icons/lu"
 import { FaWhatsapp } from "react-icons/fa"
 import { getStoredArticleBySlug, getStoredArticles, type StoredArticle } from "@/data/articles"
+import { seedArticles as seedArticleData } from "@/data/seedData"
 
 function NavBar() {
   const [menuOpen, setMenuOpen] = React.useState(false)
@@ -299,16 +300,31 @@ export default function ArticleDetailPage() {
     window.scrollTo(0, 0)
     if (!slug) return
     setLoading(true)
-    getStoredArticleBySlug(slug).then((a) => {
-      setArticle(a)
-      setLoading(false)
-    })
+    getStoredArticleBySlug(slug)
+      .then((a) => {
+        if (a) {
+          setArticle(a)
+        } else {
+          const found = seedArticleData.find((x) => x.slug === slug)
+          setArticle(found)
+        }
+        setLoading(false)
+      })
+      .catch(() => {
+        const found = seedArticleData.find((x) => x.slug === slug)
+        setArticle(found)
+        setLoading(false)
+      })
   }, [slug])
 
   React.useEffect(() => {
-    getStoredArticles().then((all) => {
-      setOtherArticles(all.filter((a) => a.slug !== slug))
-    })
+    getStoredArticles()
+      .then((all) => {
+        setOtherArticles(all.filter((a) => a.slug !== slug))
+      })
+      .catch(() => {
+        setOtherArticles(seedArticleData.filter((a) => a.slug !== slug))
+      })
   }, [slug])
 
   if (loading) {

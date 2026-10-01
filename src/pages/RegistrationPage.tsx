@@ -31,6 +31,7 @@ import {
   LuClipboardList,
 } from "react-icons/lu"
 import { addStudent, getActiveRegistration, KELAS_OPTIONS, type KelasOption, type OpenRegistration } from "@/store"
+import { getFallbackRegistration } from "@/data/seedData"
 
 const GOOGLE_FORM_BASE =
   "https://docs.google.com/forms/d/e/1FAIpQLSe2rHkl2i3rlllRUrvj9gdCofTOIJJI-ZEalFmpTZS7agqB3Q/viewform"
@@ -278,7 +279,12 @@ export default function RegistrationPage() {
   const [activeReg, setActiveReg] = React.useState<OpenRegistration | null>(null)
 
   React.useEffect(() => {
-    getActiveRegistration().then(setActiveReg)
+    getActiveRegistration()
+      .then(setActiveReg)
+      .catch(() => {
+        const fb = getFallbackRegistration()
+        setActiveReg({ id: "fallback", month: fb.month, year: fb.year, createdAt: new Date().toISOString() })
+      })
   }, [])
 
   const angkatanLabel = activeReg ? `Angkatan ${activeReg.month} ${activeReg.year}` : ""

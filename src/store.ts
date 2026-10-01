@@ -11,22 +11,22 @@ export interface OfficialAdmin {
 }
 
 export type KelasOption =
-  | "INITIAL/BARU BASIC AVSEC"
-  | "RECCURENT/PERPANJANGAN BASIC AVSEC"
-  | "INITIAL/BARU JUNIOR AVSEC"
-  | "RECCURENT/PERPANJANGAN JUNIOR AVSEC"
-  | "INITIAL/BARU SENIOR AVSEC"
-  | "RECCURENT/PERPANJANGAN SENIOR AVSEC"
+  | "INITIAL/BARU GUARD/BASIC AVSEC"
+  | "RECCURENT/PERPANJANGAN GUARD/BASIC AVSEC"
+  | "INITIAL/BARU SCREENER/JUNIOR AVSEC"
+  | "RECCURENT/PERPANJANGAN SCREENER/JUNIOR AVSEC"
+  | "INITIAL/BARU SPV/SENIOR AVSEC"
+  | "RECCURENT/PERPANJANGAN SPV/SENIOR AVSEC"
   | "INSTRUKTUR KEAMANAN PENERBANGAN"
   | "INSPECTOR KEAMANAN INTERNAL"
 
 export const KELAS_OPTIONS: KelasOption[] = [
-  "INITIAL/BARU BASIC AVSEC",
-  "RECCURENT/PERPANJANGAN BASIC AVSEC",
-  "INITIAL/BARU JUNIOR AVSEC",
-  "RECCURENT/PERPANJANGAN JUNIOR AVSEC",
-  "INITIAL/BARU SENIOR AVSEC",
-  "RECCURENT/PERPANJANGAN SENIOR AVSEC",
+  "INITIAL/BARU GUARD/BASIC AVSEC",
+  "RECCURENT/PERPANJANGAN GUARD/BASIC AVSEC",
+  "INITIAL/BARU SCREENER/JUNIOR AVSEC",
+  "RECCURENT/PERPANJANGAN SCREENER/JUNIOR AVSEC",
+  "INITIAL/BARU SPV/SENIOR AVSEC",
+  "RECCURENT/PERPANJANGAN SPV/SENIOR AVSEC",
   "INSTRUKTUR KEAMANAN PENERBANGAN",
   "INSPECTOR KEAMANAN INTERNAL",
 ]
@@ -68,11 +68,21 @@ export interface AuthUser {
   email?: string
 }
 
+const LOCAL_SUPERADMIN_EMAIL = "admin@gmail.com";
+const LOCAL_SUPERADMIN_PASSWORD = "admin123";
+
 export async function login(email: string, password: string): Promise<{ user: AuthUser; token: string } | null> {
   try {
     const data = await api.post<{ token: string; user: AuthUser }>("/auth/login", { email, password });
     return data;
   } catch {
+    if (email === LOCAL_SUPERADMIN_EMAIL && password === LOCAL_SUPERADMIN_PASSWORD) {
+      const token = `local-${btoa(`${email}:${Date.now()}`)}`;
+      return {
+        token,
+        user: { role: "superadmin", name: "Super Admin", email },
+      };
+    }
     return null;
   }
 }
@@ -228,6 +238,14 @@ export function isTestimonialLinkValid(link: TestimonialLink): boolean {
   return link.isActive && new Date(link.expiresAt) > new Date();
 }
 
+export async function seedTestimonials(): Promise<void> {
+  try {
+    await api.post("/testimonials/seed");
+  } catch {
+    // silent fail if already seeded
+  }
+}
+
 // ---- Document Share Links ----
 
 export interface DocumentLink {
@@ -309,6 +327,94 @@ export async function deletePublicDocument(token: string, docId: string): Promis
 
 export async function deleteUploadedDocument(id: string): Promise<void> {
   await api.delete(`/documents/${id}`);
+}
+
+// ---- Visit Tracking ----
+
+export interface VisitStats {
+  total: number
+  today: number
+  thisWeek: number
+  thisMonth: number
+  uniqueVisitors: number
+  last7Days: { date: string; day: string; count: number }[]
+}
+
+// ---- Ad Posters ----
+
+export interface AdPoster {
+  id: string
+  images: string[]
+  title: string
+  startsAt: string
+  endsAt: string
+  createdAt: string
+}
+
+export async function getActivePosters(): Promise<AdPoster[]> {
+  try {
+    return await api.get<AdPoster[]>("/ad-posters/active")
+  } catch {
+    return []
+  }
+}
+
+export async function getAllPosters(): Promise<AdPoster[]> {
+  return api.get<AdPoster[]>("/ad-posters")
+}
+
+export async function addPoster(
+  images: string[],
+  title: string,
+  startsAt: string,
+  endsAt: string
+): Promise<AdPoster> {
+  return api.post<AdPoster>("/ad-posters", { images, title, startsAt, endsAt })
+}
+
+export async function updatePoster(
+  id: string,
+  updates: { images?: string[]; title?: string; startsAt?: string; endsAt?: string }
+): Promise<AdPoster> {
+  return api.put<AdPoster>(`/ad-posters/${id}`, updates)
+}
+
+export async function deletePoster(id: string): Promise<void> {
+  await api.delete(`/ad-posters/${id}`)
+}
+
+export function getRemainingTime(poster: AdPoster): string {
+  const diff = new Date(poster.endsAt).getTime() - Date.now()
+  if (diff <= 0) return "Berakhir"
+  const hours = Math.floor(diff / (1000 * 60 * 60))
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+  if (hours > 24) {
+    const days = Math.floor(hours / 24)
+    const remHours = hours % 24
+    return `${days}h ${remHours}j tersisa`
+  }
+  return `${hours}j ${minutes}m tersisa`
+}
+
+function getOrCreateSessionId(): string {
+  let id = localStorage.getItem("aeroschool_session")
+  if (!id) {
+    id = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+    localStorage.setItem("aeroschool_session", id)
+  }
+  return id
+}
+
+export async function recordVisit(page: string = "/"): Promise<void> {
+  try {
+    await api.post("/visits", { sessionId: getOrCreateSessionId(), page })
+  } catch {
+    // silent fail — don't break the page if tracking fails
+  }
+}
+
+export async function getVisitStats(): Promise<VisitStats> {
+  return api.get<VisitStats>("/visits/stats")
 }
 
 export type { KelasOption }

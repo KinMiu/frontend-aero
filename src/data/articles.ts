@@ -53,3 +53,11 @@ export async function updateStoredArticle(id: string, updates: Partial<Omit<Stor
 export async function deleteStoredArticle(id: string): Promise<void> {
   await api.delete(`/articles/${id}`);
 }
+
+export async function seedArticles(): Promise<void> {
+  try {
+    await api.post("/articles/seed");
+  } catch {
+    // silent fail if already seeded
+  }
+}

@@ -58,8 +58,12 @@ export default function ArtikelPage() {
   const [sections, setSections] = React.useState<ArticleSection[]>([])
 
   const refresh = async () => {
-    const list = await getStoredArticles()
-    setArticles(list)
+    try {
+      const list = await getStoredArticles()
+      setArticles(list)
+    } catch {
+      setArticles([])
+    }
   }
 
   React.useEffect(() => {

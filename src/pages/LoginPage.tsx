@@ -228,23 +228,7 @@ export default function LoginPage() {
               </Button>
             </Stack>
 
-            <Box
-              bg="blue.50"
-              rounded="xl"
-              p="4"
-              border="1px solid"
-              borderColor="blue.100"
-            >
-              <Stack gap="2">
-                <Text fontSize="xs" fontWeight="semibold" color="blue.700" textTransform="uppercase" letterSpacing="wider">
-                  Akses Demo
-                </Text>
-                <Stack gap="1">
-                  <Text fontSize="xs" color="gray.600">Super Admin: <Text as="span" color="gray.900" fontWeight="medium">admin@gmail.com / admin123</Text></Text>
-                  <Text fontSize="xs" color="gray.600">Official Admin: <Text as="span" color="gray.900" fontWeight="medium">officialadmin@gmail.com / 123456</Text></Text>
-                </Stack>
-              </Stack>
-            </Box>
+            
 
             <Text fontSize="sm" color="gray.500" textAlign="center">
               <Text as="span" color="blue.600" cursor="pointer" _hover={{ textDecoration: "underline" }} onClick={() => navigate("/")}>

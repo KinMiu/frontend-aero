@@ -52,9 +52,14 @@ export default function TestimoniPage() {
   const [now, setNow] = React.useState(new Date())
 
   const refresh = async () => {
-    const [ts, link] = await Promise.all([getTestimonials(), getActiveTestimonialLink()])
-    setTestimonials(ts)
-    setActiveLink(link)
+    try {
+      const [ts, link] = await Promise.all([getTestimonials(), getActiveTestimonialLink()])
+      setTestimonials(ts)
+      setActiveLink(link)
+    } catch {
+      setTestimonials([])
+      setActiveLink(null)
+    }
   }
 
   React.useEffect(() => {

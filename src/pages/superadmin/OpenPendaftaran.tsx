@@ -50,9 +50,14 @@ export default function OpenPendaftaranPage() {
   const [activeReg, setActiveReg] = React.useState<OpenRegistration | null>(null)
 
   const refresh = async () => {
-    const [regs, active] = await Promise.all([getOpenRegistrations(), getActiveRegistration()])
-    setRegistrations(regs)
-    setActiveReg(active)
+    try {
+      const [regs, active] = await Promise.all([getOpenRegistrations(), getActiveRegistration()])
+      setRegistrations(regs)
+      setActiveReg(active)
+    } catch {
+      setRegistrations([])
+      setActiveReg(null)
+    }
   }
 
   React.useEffect(() => {

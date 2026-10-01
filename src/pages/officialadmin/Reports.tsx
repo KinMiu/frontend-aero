@@ -19,7 +19,7 @@ export default function OfficialReports() {
   const [search, setSearch] = useState("")
 
   useEffect(() => {
-    getStudents().then(setStudents)
+    getStudents().then(setStudents).catch(() => {})
   }, [])
 
   const todayStr = new Date().toDateString()
