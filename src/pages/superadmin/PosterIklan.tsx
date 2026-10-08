@@ -37,8 +37,10 @@ import {
   deletePoster,
   updatePoster,
   getAllPosters,
+  getActiveWebinars,
   getRemainingTime,
   type AdPoster,
+  type Webinar,
 } from "@/store"
 
 function toLocalDateTimeInput(date: Date): string {
@@ -72,6 +74,8 @@ export default function PosterIklanPage() {
   const [startsAt, setStartsAt] = React.useState(toLocalDateTimeInput(now))
   const [endsAt, setEndsAt] = React.useState(defaultEnd)
   const [loading, setLoading] = React.useState(false)
+  const [webinars, setWebinars] = React.useState<Webinar[]>([])
+  const [selectedWebinarId, setSelectedWebinarId] = React.useState<string>("")
 
   const refresh = async () => {
     try {
@@ -81,8 +85,17 @@ export default function PosterIklanPage() {
     }
   }
 
+  const refreshWebinars = async () => {
+    try {
+      setWebinars(await getActiveWebinars())
+    } catch {
+      setWebinars([])
+    }
+  }
+
   React.useEffect(() => {
     refresh()
+    refreshWebinars()
     const interval = setInterval(() => refresh(), 60000)
     return () => clearInterval(interval)
   }, [])
@@ -93,6 +106,7 @@ export default function PosterIklanPage() {
     setStartsAt(toLocalDateTimeInput(new Date()))
     setEndsAt(toLocalDateTimeInput(new Date(Date.now() + 24 * 60 * 60 * 1000)))
     setEditingId(null)
+    setSelectedWebinarId("")
   }
 
   const handleAddImage = (dataUrl: string) => {
@@ -109,6 +123,7 @@ export default function PosterIklanPage() {
     setTitle(poster.title)
     setStartsAt(toLocalDateTimeInput(new Date(poster.startsAt)))
     setEndsAt(toLocalDateTimeInput(new Date(poster.endsAt)))
+    setSelectedWebinarId(poster.webinarId || "")
     setEditOpen(true)
   }
 
@@ -139,7 +154,7 @@ export default function PosterIklanPage() {
     if (!v.ok || !v.start || !v.end) return
     setLoading(true)
     try {
-      await addPoster(images, title.trim(), v.start.toISOString(), v.end.toISOString())
+      await addPoster(images, title.trim(), v.start.toISOString(), v.end.toISOString(), selectedWebinarId || null)
       resetForm()
       setAddOpen(false)
       await refresh()
@@ -165,6 +180,7 @@ export default function PosterIklanPage() {
         title: title.trim(),
         startsAt: v.start.toISOString(),
         endsAt: v.end.toISOString(),
+        webinarId: selectedWebinarId || null,
       })
       resetForm()
       setEditOpen(false)
@@ -384,6 +400,28 @@ export default function PosterIklanPage() {
                   />
                 </Field>
               </HStack>
+              {webinars.length > 0 && (
+                <Field label="Tautan Webinar (opsional)">
+                  <Box as="select"
+                    value={selectedWebinarId}
+                    onChange={(e) => setSelectedWebinarId(e.target.value)}
+                    borderWidth="1px"
+                    borderColor="gray.200"
+                    borderRadius="md"
+                    px="3"
+                    py="2"
+                    fontSize="sm"
+                  >
+                    <option value="">Tidak ada webinar</option>
+                    {webinars.map((w) => (
+                      <option key={w.id} value={w.id}>{w.title}</option>
+                    ))}
+                  </Box>
+                  <Text fontSize="xs" color="gray.400" mt="1">
+                    Pilih webinar aktif untuk menampilkan link pendaftaran di poster.
+                  </Text>
+                </Field>
+              )}
               <Text fontSize="xs" color="gray.500">
                 Poster akan tampil otomatis saat tanggal mulai tercapai dan disembunyikan setelah tanggal akhir.
               </Text>
@@ -470,6 +508,28 @@ export default function PosterIklanPage() {
                   />
                 </Field>
               </HStack>
+              {webinars.length > 0 && (
+                <Field label="Tautan Webinar (opsional)">
+                  <Box as="select"
+                    value={selectedWebinarId}
+                    onChange={(e) => setSelectedWebinarId(e.target.value)}
+                    borderWidth="1px"
+                    borderColor="gray.200"
+                    borderRadius="md"
+                    px="3"
+                    py="2"
+                    fontSize="sm"
+                  >
+                    <option value="">Tidak ada webinar</option>
+                    {webinars.map((w) => (
+                      <option key={w.id} value={w.id}>{w.title}</option>
+                    ))}
+                  </Box>
+                  <Text fontSize="xs" color="gray.400" mt="1">
+                    Pilih webinar aktif untuk menampilkan link pendaftaran di poster.
+                  </Text>
+                </Field>
+              )}
             </Stack>
           </DialogBody>
           <DialogFooter>

@@ -23,6 +23,7 @@ import {
   type TestimonialLink,
 } from "@/store"
 import { Field as FieldUI } from "@/components/ui/field"
+import { MediaUpload, type MediaItem } from "@/components/MediaUpload"
 import { toaster } from "@/components/ui/toaster"
 
 export default function PublicTestimonialPage() {
@@ -42,7 +43,7 @@ export default function PublicTestimonialPage() {
     })
   }, [token])
 
-  const [form, setForm] = React.useState({ name: "", role: "", text: "", rating: 5 })
+  const [form, setForm] = React.useState({ name: "", role: "", text: "", rating: 5, media: [] as MediaItem[] })
   const [loading, setLoading] = React.useState(false)
   const [submitted, setSubmitted] = React.useState(false)
 
@@ -96,7 +97,7 @@ export default function PublicTestimonialPage() {
               </Text>
               <Button
                 as="a"
-                href="https://wa.me/6285267542226?text=Halo%20Aero%20Forte%20Indonesia%2C%20saya%20ingin%20menambahkan%20testimoni%20tapi%20link%20tidak%20aktif"
+                href="https://wa.me/6285212932226?text=Halo%20Aero%20Forte%20Indonesia%2C%20saya%20ingin%20menambahkan%20testimoni%20tapi%20link%20tidak%20aktif"
                 target="_blank"
                 rel="noopener noreferrer"
                 colorPalette="green"
@@ -236,6 +237,14 @@ export default function PublicTestimonialPage() {
                   </Box>
                 ))}
               </HStack>
+            </FieldUI>
+
+            <FieldUI label="Foto / Video (opsional)" helperText="Foto dikonversi ke WebP, video ke WebM. Bisa upload lebih dari satu.">
+              <MediaUpload
+                items={form.media}
+                onChange={(items) => setForm({ ...form, media: items })}
+                label="Upload foto atau video"
+              />
             </FieldUI>
 
             <Button

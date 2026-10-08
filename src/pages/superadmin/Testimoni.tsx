@@ -14,8 +14,9 @@ import {
   Textarea,
 } from "@chakra-ui/react"
 import * as React from "react"
-import { LuPlus, LuTrash2, LuPencil, LuShare2, LuLink, LuClock, LuCopy, LuCircleX, LuStar } from "react-icons/lu"
+import { LuPlus, LuTrash2, LuPencil, LuShare2, LuLink, LuClock, LuCopy, LuCircleX, LuStar, LuImage, LuVideo } from "react-icons/lu"
 import { ImageUpload } from "@/components/ImageUpload"
+import { MediaUpload, type MediaItem } from "@/components/MediaUpload"
 import {
   getTestimonials,
   addTestimonial,
@@ -46,7 +47,7 @@ export default function TestimoniPage() {
   const [shareOpen, setShareOpen] = React.useState(false)
   const [linkInfoOpen, setLinkInfoOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<Testimonial | null>(null)
-  const [form, setForm] = React.useState({ name: "", role: "", text: "", avatar: "", photoUrl: "", rating: 5 })
+  const [form, setForm] = React.useState({ name: "", role: "", text: "", avatar: "", photoUrl: "", media: [] as MediaItem[], rating: 5 })
   const [loading, setLoading] = React.useState(false)
   const [copied, setCopied] = React.useState(false)
   const [now, setNow] = React.useState(new Date())
@@ -82,13 +83,13 @@ export default function TestimoniPage() {
 
   const openAdd = () => {
     setEditing(null)
-    setForm({ name: "", role: "", text: "", avatar: "", photoUrl: "", rating: 5 })
+    setForm({ name: "", role: "", text: "", avatar: "", photoUrl: "", media: [], rating: 5 })
     setEditOpen(true)
   }
 
   const openEdit = (t: Testimonial) => {
     setEditing(t)
-    setForm({ name: t.name, role: t.role, text: t.text, avatar: t.avatar, photoUrl: t.photoUrl || "", rating: t.rating })
+    setForm({ name: t.name, role: t.role, text: t.text, avatar: t.avatar, photoUrl: t.photoUrl || "", media: t.media || [], rating: t.rating })
     setEditOpen(true)
   }
 
@@ -328,6 +329,7 @@ export default function TestimoniPage() {
                 <Table.ColumnHeader>Nama</Table.ColumnHeader>
                 <Table.ColumnHeader>Role</Table.ColumnHeader>
                 <Table.ColumnHeader>Testimoni</Table.ColumnHeader>
+                <Table.ColumnHeader>Media</Table.ColumnHeader>
                 <Table.ColumnHeader>Rating</Table.ColumnHeader>
                 <Table.ColumnHeader textAlign="end">Aksi</Table.ColumnHeader>
               </Table.Row>
@@ -367,6 +369,36 @@ export default function TestimoniPage() {
                   <Table.Cell fontSize="xs" color="gray.600">{t.role}</Table.Cell>
                   <Table.Cell fontSize="xs" color="gray.600" maxW="xs">
                     <Text noOfLines={2}>{t.text}</Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    {t.media && t.media.length > 0 ? (
+                      <HStack gap="1">
+                        {t.media.slice(0, 3).map((m, mi) => (
+                          <Box
+                            key={mi}
+                            w="8"
+                            h="8"
+                            borderRadius="md"
+                            overflow="hidden"
+                            position="relative"
+                            flexShrink="0"
+                          >
+                            {m.type === "video" ? (
+                              <Box w="full" h="full" display="flex" alignItems="center" justifyContent="center" bg="purple.50">
+                                <Icon color="purple.500" fontSize="xs"><LuVideo /></Icon>
+                              </Box>
+                            ) : (
+                              <img src={m.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            )}
+                          </Box>
+                        ))}
+                        {t.media.length > 3 && (
+                          <Text fontSize="xs" color="gray.500" fontWeight="semibold">+{t.media.length - 3}</Text>
+                        )}
+                      </HStack>
+                    ) : (
+                      <Text fontSize="xs" color="gray.300">—</Text>
+                    )}
                   </Table.Cell>
                   <Table.Cell>
                     <HStack gap="0.5">
@@ -430,6 +462,18 @@ export default function TestimoniPage() {
                   shape="circle"
                   size={100}
                 />
+              </Field>
+              <Field label="Konten Media (Foto / Video)" helperText="Foto dikonversi ke WebP, video ke WebM. Bisa upload lebih dari satu.">
+                <MediaUpload
+                  items={form.media}
+                  onChange={(items) => setForm({ ...form, media: items })}
+                  label="Upload foto atau video"
+                />
+                {form.media.length > 0 && (
+                  <Text fontSize="xs" color="gray.500" mt="2">
+                    {form.media.filter((m) => m.type === "image").length} foto · {form.media.filter((m) => m.type === "video").length} video
+                  </Text>
+                )}
               </Field>
               <Field label="Avatar (Inisial, contoh: AH)">
                 <Input

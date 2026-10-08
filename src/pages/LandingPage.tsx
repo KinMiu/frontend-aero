@@ -21,7 +21,7 @@ import { keyframes } from "@emotion/react"
 import { Toaster } from "@/components/ui/toaster"
 import * as React from "react"
 import { useNavigate, Link } from "react-router-dom"
-import { getActiveRegistration, getTestimonials as getStoredTestimonials, seedTestimonials as seedTestimonialsApi, recordVisit, getActivePosters as fetchActivePosters, type Testimonial, type OpenRegistration, type AdPoster } from "@/store"
+import { getActiveRegistration, getTestimonials as getStoredTestimonials, seedTestimonials as seedTestimonialsApi, recordVisit, getActivePosters as fetchActivePosters, getActiveVideo as fetchActiveVideo, getVideoSettings as fetchVideoSettings, type Testimonial, type OpenRegistration, type AdPoster, type VideoContent } from "@/store"
 import { getStoredArticles, seedArticles, type StoredArticle } from "@/data/articles"
 import { seedTestimonials, seedArticles as seedArticleData, getFallbackRegistration } from "@/data/seedData"
 import {
@@ -49,8 +49,9 @@ import {
   LuZap,
   LuMapPin,
   LuMail,
+  LuPlay,
 } from "react-icons/lu"
-import { FaWhatsapp } from "react-icons/fa"
+import { FaTiktok, FaWhatsapp } from "react-icons/fa"
 import LeafletMap, { type MapLocation } from "@/components/LeafletMap"
 
 const programs = [
@@ -76,7 +77,7 @@ const programs = [
   },
   {
     icon: LuPlane,
-    title: "Skriner AVSEC",
+    title: "Skriner/Junior AVSEC",
     description:
       "Program diklat lanjutan setelah memiliki lisensi Awal/Guard AVSEC.",
     color: "orange",
@@ -97,7 +98,7 @@ const programs = [
   },
   {
     icon: LuGraduationCap,
-    title: "SVP/Supervisor AVSEC",
+    title: "SVP/Senior AVSEC",
     description:
       "Program diklat tertinggi bagi personel pengamanan penerbangan, harus sudah memiliki lisensi Skriner.",
     color: "teal",
@@ -190,17 +191,19 @@ const articleImage = "/image copy 3.jpg"
 
 // --- Ad Poster Overlay ---
 function PosterOverlay({ onClose }: { onClose: () => void }) {
+  const navigate = useNavigate()
   const [posters, setPosters] = React.useState<AdPoster[]>([])
   const [current, setCurrent] = React.useState(0)
   const isDesktop = useBreakpointValue({ base: false, md: true })
   const touchStartX = React.useRef(0)
 
   const allImages = React.useMemo(
-    () => posters.flatMap((p) => p.images.map((img) => ({ img, title: p.title }))),
+    () => posters.flatMap((p) => p.images.map((img) => ({ img, title: p.title, webinarId: p.webinarId || null }))),
     [posters]
   )
 
-  const perView = isDesktop ? 2 : 1
+  const isSingle = allImages.length === 1
+  const perView = isDesktop && !isSingle ? 2 : 1
   const maxIndex = Math.max(0, allImages.length - perView)
 
   React.useEffect(() => {
@@ -243,17 +246,20 @@ function PosterOverlay({ onClose }: { onClose: () => void }) {
       p={{ base: "4", md: "8" }}
       onClick={onClose}
     >
-      <Box
-        position="relative"
-        display="flex"
-        alignItems="center"
-        justifyContent="center"
-        w="full"
-        maxW={{ base: "500px", md: "1000px" }}
+      <VStack
+        gap="4"
         onClick={(e) => e.stopPropagation()}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
+        <Box
+          position="relative"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          w="full"
+          maxW={{ base: "500px", md: isSingle ? "640px" : "1000px" }}
+        >
         <Box
           position="absolute"
           top={{ base: "-8", md: "-10" }}
@@ -292,9 +298,9 @@ function PosterOverlay({ onClose }: { onClose: () => void }) {
               <Box
                 key={i}
                 flexShrink="0"
-                w={{ base: "full", md: "calc(50% - 6px)" }}
-                maxH="80vh"
+                w={{ base: "full", md: isSingle ? "full" : "calc(50% - 6px)" }}
                 display="flex"
+                flexDirection="column"
                 alignItems="center"
                 justifyContent="center"
               >
@@ -302,10 +308,24 @@ function PosterOverlay({ onClose }: { onClose: () => void }) {
                   src={item.img}
                   alt={item.title}
                   w="full"
-                  maxH="80vh"
+                  maxH="70vh"
                   objectFit="contain"
                   borderRadius="lg"
                 />
+                {item.webinarId && (
+                  <Button
+                    mt="4"
+                    colorPalette="orange"
+                    size="lg"
+                    shadow="xl"
+                    _hover={{ transform: "scale(1.05)", shadow: "2xl" }}
+                    transition="all 0.2s"
+                    onClick={() => navigate(`/webinar/${item.webinarId}`)}
+                  >
+                    <Icon mr="1"><LuZap /></Icon>
+                    Daftar Webinar
+                  </Button>
+                )}
               </Box>
             ))}
           </HStack>
@@ -363,7 +383,7 @@ function PosterOverlay({ onClose }: { onClose: () => void }) {
 
         {/* Dot indicators */}
         {allImages.length > perView && (
-          <HStack position="absolute" bottom="4" left="50%" transform="translateX(-50%)" gap="2" zIndex="docked">
+          <HStack position="absolute" bottom="3" left="50%" transform="translateX(-50%)" gap="2" zIndex="docked">
             {Array.from({ length: maxIndex + 1 }).map((_, i) => (
               <Box
                 key={i}
@@ -378,7 +398,10 @@ function PosterOverlay({ onClose }: { onClose: () => void }) {
             ))}
           </HStack>
         )}
-      </Box>
+        </Box>
+
+
+      </VStack>
     </Box>
   )
 }
@@ -524,32 +547,98 @@ function NavBar({ onDaftar }: { onDaftar: () => void }) {
 
 function StatsBar() {
   return (
-    <Box bg="white" py="10" position="relative" zIndex="2">
+    <Box bg="white" py={{ base: "14", md: "20" }} position="relative" zIndex="2">
       <Container maxW="7xl">
-        <Grid templateColumns={{ base: "repeat(2, 1fr)", md: "repeat(3, 1fr)" }} gap="6">
-          {stats.map((stat) => (
-            <VStack key={stat.label} gap="2" textAlign="center" py="4">
-              <Box
-                bg="blue.50"
-                borderRadius="2xl"
-                p="3"
-                w="14"
-                h="14"
-                display="flex"
-                alignItems="center"
-                justifyContent="center"
-              >
-                <Icon fontSize="2xl" color="blue.600"><stat.icon /></Icon>
-              </Box>
-              <Text fontSize={{ base: "3xl", md: "4xl" }} fontWeight="black" color="gray.900" lineHeight="1">
-                {stat.value}
-              </Text>
-              <Text fontSize="xs" color="gray.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wide">
-                {stat.label}
+        <Box
+          bg="blue.950"
+          borderRadius={{ base: "3xl", md: "4xl" }}
+          px={{ base: "5", md: "10", lg: "14" }}
+          py={{ base: "8", md: "10" }}
+          position="relative"
+          overflow="hidden"
+          shadow="2xl"
+        >
+          <Box
+            position="absolute"
+            top="-24"
+            right="-16"
+            w={{ base: "56", md: "80" }}
+            h={{ base: "56", md: "80" }}
+            border="1px solid"
+            borderColor="whiteAlpha.150"
+            borderRadius="full"
+          />
+          <Box
+            position="absolute"
+            bottom="-32"
+            left="35%"
+            w="64"
+            h="64"
+            bg="orange.400/10"
+            borderRadius="full"
+            filter="blur(45px)"
+          />
+
+          <Grid
+            templateColumns={{ base: "1fr", lg: "0.95fr 2fr" }}
+            gap={{ base: "8", lg: "16" }}
+            alignItems="center"
+            position="relative"
+          >
+            <VStack alignItems="flex-start" gap="4">
+              <HStack gap="2">
+                <Box w="8" h="1px" bg="orange.400" />
+                <Text color="orange.300" fontSize="xs" fontWeight="bold" letterSpacing="widest" textTransform="uppercase">
+                  Dipercaya untuk berkembang
+                </Text>
+              </HStack>
+              <Heading fontSize={{ base: "2xl", md: "4xl" }} color="white" lineHeight="1.1" letterSpacing="tight">
+                Langkah awal menuju karier yang lebih pasti.
+              </Heading>
+              <Text color="blue.100" fontSize={{ base: "sm", md: "md" }} lineHeight="1.7" maxW="md">
+                Standar pelatihan yang terarah untuk mempersiapkan personel keamanan penerbangan yang profesional.
               </Text>
             </VStack>
-          ))}
-        </Grid>
+
+            <Grid templateColumns={{ base: "1fr", sm: "repeat(3, 1fr)" }}>
+              {stats.map((stat, index) => (
+                <Box
+                  key={stat.label}
+                  px={{ base: "0", sm: "5", md: "7" }}
+                  py={{ base: "4", sm: "0" }}
+                  borderTop={{ base: index === 0 ? "none" : "1px solid", sm: "none" }}
+                  borderLeft={{ base: "none", sm: index === 0 ? "none" : "1px solid" }}
+                  borderColor="whiteAlpha.200"
+                  transition="all 0.3s"
+                  _hover={{ transform: "translateY(-3px)" }}
+                >
+                  <Flex alignItems="center" gap="3" w="full">
+                    <Box
+                      w={{ base: "6", sm: "7" }}
+                      h={{ base: "6", sm: "7" }}
+                      flexShrink="0"
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="center"
+                    >
+                      <Icon fontSize={{ base: "lg", sm: "xl" }} color={index === 1 ? "orange.300" : "blue.200"}>
+                        <stat.icon />
+                      </Icon>
+                    </Box>
+                    <Box display={{ base: "flex", sm: "block" }} alignItems="center" gap="2">
+                      <Text fontSize={{ base: "3xl", sm: "4xl", md: "5xl" }} fontWeight="black" color="white" lineHeight="1" letterSpacing="tight">
+                        {stat.value}
+                      </Text>
+                      <Text mt={{ base: "0", sm: "3" }} color="blue.100" fontSize="xs" fontWeight="semibold" lineHeight="1.4" maxW="24">
+                        {stat.label}
+                      </Text>
+                    </Box>
+                  </Flex>
+                </Box>
+              ))}
+            </Grid>
+          </Grid>
+        </Box>
       </Container>
     </Box>
   )
@@ -558,6 +647,7 @@ function StatsBar() {
 // --- Marquee strip ---
 
 function HeroSection({ onDaftar }: { onDaftar: () => void }) {
+  const navigate = useNavigate()
   const [reg, setReg] = React.useState<OpenRegistration | null>(null)
   const [posters, setPosters] = React.useState<AdPoster[]>([])
   const [heroSlide, setHeroSlide] = React.useState(0)
@@ -573,9 +663,9 @@ function HeroSection({ onDaftar }: { onDaftar: () => void }) {
     fetchActivePosters().then(setPosters)
   }, [])
 
-  const heroSlides: { src: string; isPoster: boolean }[] = [
+  const heroSlides: { src: string; isPoster: boolean; webinarId?: string | null }[] = [
     { src: heroImage, isPoster: false },
-    ...posters.flatMap((p) => p.images.map((img) => ({ src: img, isPoster: true }))),
+    ...posters.flatMap((p) => p.images.map((img) => ({ src: img, isPoster: true, webinarId: p.webinarId || null }))),
   ]
 
   React.useEffect(() => {
@@ -651,7 +741,7 @@ function HeroSection({ onDaftar }: { onDaftar: () => void }) {
             </Heading>
             <Text fontSize={{ base: "md", md: "lg" }} color="blue.100" maxW="lg" lineHeight="1.7">
               Lembaga Pendidikan dan Pelatihan Personel Keamanan Penerbangan (AVSEC)
-              resmi terlisensi KEMENHUB. Program singkat, biaya terjangkau, lisensi cepat.
+              resmi TERSERTIFIKASI KEMENHUB. Program singkat, biaya terjangkau, lisensi cepat.
             </Text>
             <HStack gap="4" flexWrap="wrap" mt="2">
               <Button
@@ -735,9 +825,28 @@ function HeroSection({ onDaftar }: { onDaftar: () => void }) {
                 </HStack>
               )}
             </Box>
-            <Box
-              position="absolute"
-              bottom="-5"
+            {heroSlides[heroSlide]?.isPoster && heroSlides[heroSlide]?.webinarId && (
+              <Button
+                position="relative"
+                zIndex="2"
+                mt="4"
+                colorPalette="orange"
+                size="lg"
+                w="full"
+                shadow="xl"
+                _hover={{ transform: "scale(1.02)", shadow: "2xl" }}
+                transition="all 0.2s"
+                onClick={() => navigate(`/webinar/${heroSlides[heroSlide].webinarId!}`)}
+              >
+                <Icon mr="1"><LuZap /></Icon>
+                Daftar Webinar
+              </Button>
+            )}
+            {!(heroSlides[heroSlide]?.isPoster && heroSlides[heroSlide]?.webinarId) && (
+              <Box
+                position="absolute"
+                zIndex="1"
+                bottom="-5"
               left="-5"
               bg="white"
               borderRadius="2xl"
@@ -753,8 +862,9 @@ function HeroSection({ onDaftar }: { onDaftar: () => void }) {
                   <Text fontWeight="bold" fontSize="sm" color="gray.800">Resmi KEMENHUB</Text>
                   <Text fontSize="xs" color="gray.500">Izin No. I/LD-AVSEC.070/DKP/V/2018</Text>
                 </VStack>
-              </HStack>
-            </Box>
+                </HStack>
+              </Box>
+            )}
 
           </Box>
         </Grid>
@@ -944,21 +1054,316 @@ function ProgramSection({ onSyarat, onDaftar }: { onSyarat: (idx: number) => voi
 }
 
 function TestimoniSection() {
-  const [testimonials, setTestimonials] = React.useState<Testimonial[]>([])
+  const [testimonials, setTestimonials] = React.useState<Testimonial[]>(seedTestimonials)
+  const [lightbox, setLightbox] = React.useState<{
+    media: { url: string; type: "image" | "video" }[]
+    index: number
+    name: string
+  } | null>(null)
 
   React.useEffect(() => {
+    let isActive = true
+
     getStoredTestimonials()
       .then((data) => {
-        if (data.length === 0) {
-          seedTestimonialsApi()
-            .then(() => getStoredTestimonials().then(setTestimonials))
-            .catch(() => setTestimonials(seedTestimonials))
-        } else {
-          setTestimonials(data)
+        if (!isActive || data.length > 0) {
+          if (isActive && data.length > 0) setTestimonials(data)
+          return
         }
+
+        seedTestimonialsApi()
+          .then(() => getStoredTestimonials())
+          .then((seeded) => {
+            if (isActive && seeded.length > 0) setTestimonials(seeded)
+          })
+          .catch(() => undefined)
       })
-      .catch(() => setTestimonials(seedTestimonials))
+      .catch(() => undefined)
+
+    return () => {
+      isActive = false
+    }
   }, [])
+
+  const openLightbox = (t: Testimonial, mediaIdx: number) => {
+    const media = (t.media || []).map((m) => ({ url: m.url, type: m.type }))
+    if (media.length > 0) setLightbox({ media, index: mediaIdx, name: t.name })
+  }
+
+  const lbPrev = () => {
+    if (!lightbox) return
+    setLightbox({ ...lightbox, index: (lightbox.index - 1 + lightbox.media.length) % lightbox.media.length })
+  }
+  const lbNext = () => {
+    if (!lightbox) return
+    setLightbox({ ...lightbox, index: (lightbox.index + 1) % lightbox.media.length })
+  }
+
+  const lbCurrent = lightbox ? lightbox.media[lightbox.index] : null
+
+  const sortedTestimonials = React.useMemo(() => {
+    return [...testimonials].sort((a, b) => {
+      const aHasMedia = (a.media || []).length > 0 ? 1 : 0
+      const bHasMedia = (b.media || []).length > 0 ? 1 : 0
+      return bHasMedia - aHasMedia
+    })
+  }, [testimonials])
+
+  const pages = React.useMemo(() => {
+    if (sortedTestimonials.length === 0) return [[]]
+
+    const result: Testimonial[][] = []
+    for (let i = 0; i < sortedTestimonials.length; i += 4) {
+      const page = sortedTestimonials.slice(i, i + 4)
+      if (page.length < 4) {
+        page.push(...sortedTestimonials.slice(0, 4 - page.length))
+      }
+      result.push(page)
+    }
+    return result
+  }, [sortedTestimonials])
+
+  const isDesktop = useBreakpointValue({ base: false, md: true })
+  const needsScroll = sortedTestimonials.length > 4 || (!isDesktop && sortedTestimonials.length > 0)
+  const displayPages = needsScroll ? [...pages, ...pages] : pages
+  const scrollDuration = Math.max(pages.length * 14, 36)
+
+  const scrollRef = React.useRef<HTMLDivElement>(null)
+  const [pageWidth, setPageWidth] = React.useState(0)
+  const [isDragging, setIsDragging] = React.useState(false)
+  const [isAutoPaused, setIsAutoPaused] = React.useState(false)
+  const [dragOffset, setDragOffset] = React.useState(0)
+  const dragX = React.useRef(0)
+  const didDrag = React.useRef(false)
+  const resumeTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const layoutPageWidth = isDesktop ? pageWidth : Math.max(pageWidth, 1200)
+
+  const clearResumeTimer = () => {
+    if (resumeTimer.current) {
+      clearTimeout(resumeTimer.current)
+      resumeTimer.current = null
+    }
+  }
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!needsScroll) return
+    clearResumeTimer()
+    didDrag.current = false
+    dragX.current = event.clientX
+    event.currentTarget.setPointerCapture(event.pointerId)
+    setIsDragging(true)
+  }
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging) return
+    const delta = event.clientX - dragX.current
+    if (delta !== 0) didDrag.current = true
+    dragX.current = event.clientX
+    setDragOffset((offset) => offset + delta)
+  }
+
+  const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging) return
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    setIsDragging(false)
+    if (didDrag.current) {
+      setIsAutoPaused(true)
+      clearResumeTimer()
+      resumeTimer.current = setTimeout(() => {
+        setIsAutoPaused(false)
+        resumeTimer.current = null
+      }, 3000)
+    } else {
+      setIsAutoPaused(false)
+    }
+  }
+
+  React.useEffect(() => () => clearResumeTimer(), [])
+
+  React.useEffect(() => {
+    if (!needsScroll) return
+    const el = scrollRef.current
+    if (!el) return
+    const update = () => setPageWidth(el.offsetWidth)
+    update()
+    window.addEventListener("resize", update)
+    return () => window.removeEventListener("resize", update)
+  }, [needsScroll])
+
+  const renderCard = (t: Testimonial, idx: number, pageKey: string, fillHeight = false) => {
+    const media = t.media || []
+    return (
+      <Box
+        key={`${pageKey}-${t.name}-${idx}`}
+        bg="white/5"
+        backdropFilter="blur(12px)"
+        borderRadius="2xl"
+        p="8"
+        borderWidth="1px"
+        borderColor="white/10"
+        _hover={{ bg: "white/10", transform: { base: "none", md: "translateY(-4px)" } }}
+        transition="all 0.3s"
+        display="flex"
+        flexDirection="column"
+        alignSelf="stretch"
+        w="full"
+        maxW="full"
+        overflow="hidden"
+        flex={fillHeight ? "1" : undefined}
+        minH={media.length > 0 ? "500px" : "168px"}
+        h={fillHeight ? "full" : "auto"}
+      >
+        {media.length > 0 && (
+          <Box mb="5" minW="0">
+            <Box
+              borderRadius="xl"
+              overflow="hidden"
+              cursor="pointer"
+              position="relative"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation()
+                openLightbox(t, 0)
+              }}
+              _hover={{ opacity: 0.9 }}
+              transition="opacity 0.2s"
+            >
+              {media[0].type === "video" ? (
+                <>
+                  <video
+                    src={media[0].url}
+                    style={{ width: "100%", aspectRatio: "16/9", objectFit: "cover", display: "block" }}
+                    muted
+                    preload="metadata"
+                  />
+                  <Box
+                    position="absolute"
+                    inset="0"
+                    display="flex"
+                    alignItems="center"
+                    justifyContent="center"
+                    bg="blackAlpha.300"
+                    _hover={{ bg: "blackAlpha.200" }}
+                    transition="all 0.2s"
+                  >
+                    <Box
+                      w="12"
+                      h="12"
+                      borderRadius="full"
+                      bg="whiteAlpha.900"
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="center"
+                    >
+                      <Icon color="gray.900" fontSize="xl" fill="currentColor"><LuPlay /></Icon>
+                    </Box>
+                  </Box>
+                </>
+              ) : (
+                <Image
+                  src={media[0].url}
+                  alt={`${t.name} media`}
+                  w="full"
+                  aspectRatio="16/9"
+                  objectFit="cover"
+                />
+              )}
+            </Box>
+            {media.length > 1 && (
+              <HStack gap="2" mt="2" overflowX="auto" minW="0" css={{ scrollbarWidth: "none", "&::-webkit-scrollbar": { display: "none" } }}>
+                {media.map((m, mi) => (
+                  <Box
+                    key={mi}
+                    w="12"
+                    h="12"
+                    borderRadius="md"
+                    overflow="hidden"
+                    cursor="pointer"
+                    position="relative"
+                    flexShrink="0"
+                    borderWidth={mi === 0 ? "2px" : "1px"}
+                    borderColor={mi === 0 ? "orange.400" : "white/20"}
+                    opacity={mi === 0 ? 1 : 0.7}
+                    _hover={{ opacity: 1 }}
+                    transition="all 0.2s"
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      openLightbox(t, mi)
+                    }}
+                  >
+                    {m.type === "video" ? (
+                      <Box w="full" h="full" display="flex" alignItems="center" justifyContent="center" bg="white/10">
+                        <Icon color="white" fontSize="sm"><LuPlay /></Icon>
+                      </Box>
+                    ) : (
+                      <Image src={m.url} alt={`Media ${mi + 1}`} w="full" h="full" objectFit="cover" />
+                    )}
+                  </Box>
+                ))}
+                <Text fontSize="xs" color="blue.300" ml="1" whiteSpace="nowrap" flexShrink="0">
+                  {media.length} media
+                </Text>
+              </HStack>
+            )}
+          </Box>
+        )}
+        <HStack gap="1" mb="4">
+          {[...Array(5)].map((_, i) => (
+            <Icon key={i} color="orange.400" fontSize="md" fill="currentColor"><LuStar /></Icon>
+          ))}
+        </HStack>
+        <Text
+          color="blue.50"
+          fontSize="sm"
+          lineHeight="1.7"
+          mb="5"
+          fontStyle="italic"
+          flex="1"
+          overflowWrap="anywhere"
+          wordBreak="break-word"
+        >
+          &quot;{t.text}&quot;
+        </Text>
+        <HStack gap="3" minW="0" align="center">
+          <Box
+            borderRadius="full"
+            w="10"
+            h="10"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            flexShrink="0"
+            overflow="hidden"
+          >
+            {t.photoUrl ? (
+              <Image src={t.photoUrl} alt={t.name} w="10" h="10" objectFit="cover" borderRadius="full" />
+            ) : (
+              <Box
+                bgGradient="to-r"
+                gradientFrom="orange.400"
+                gradientTo="orange.600"
+                borderRadius="full"
+                w="10"
+                h="10"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+              >
+                <Text fontWeight="bold" fontSize="sm" color="white">{t.avatar}</Text>
+              </Box>
+            )}
+          </Box>
+          <VStack gap="0" alignItems="flex-start" minW="0" flex="1">
+            <Text fontWeight="bold" color="white" fontSize="sm" lineClamp={1} w="full">{t.name}</Text>
+            <Text color="blue.300" fontSize="xs" lineClamp={2} w="full">{t.role}</Text>
+          </VStack>
+        </HStack>
+      </Box>
+    )
+  }
 
   return (
     <Box id="testimoni" py={{ base: "16", md: "24" }} bg="blue.950" position="relative" overflow="hidden">
@@ -972,76 +1377,189 @@ function TestimoniSection() {
         borderRadius="full"
         filter="blur(100px)"
       />
-      <Container maxW="7xl" position="relative" zIndex="1">
-        <VStack gap="4" mb="12" textAlign="center">
+      <Container maxW="7xl" position="relative" zIndex="1" px={{ base: "4", md: "6" }}>
+        <VStack gap="4" mb={{ base: "8", md: "12" }} textAlign="center" px="2">
           <Badge colorPalette="orange" size="lg" px="4" borderRadius="full">Ulasan Alumni</Badge>
-          <Heading fontSize={{ base: "3xl", md: "4xl" }} fontWeight="bold" color="white">
+          <Heading fontSize={{ base: "2xl", md: "4xl" }} fontWeight="bold" color="white">
             Testimoni
           </Heading>
-          <Text color="blue.200" maxW="2xl" fontSize="lg">
+          <Text color="blue.200" maxW="2xl" fontSize={{ base: "md", md: "lg" }} px="1">
             Kumpulan testimoni dari para alumni yang kini berkarier di berbagai bandara
           </Text>
         </VStack>
 
-        <Grid templateColumns={{ base: "1fr", md: "repeat(3, 1fr)" }} gap="6">
-          {testimonials.map((t) => (
-            <Box
-              key={t.name}
-              bg="white/5"
-              backdropFilter="blur(12px)"
-              borderRadius="2xl"
-              p="8"
-              borderWidth="1px"
-              borderColor="white/10"
-              _hover={{ bg: "white/10", transform: "translateY(-4px)" }}
-              transition="all 0.3s"
-            >
-              <HStack gap="1" mb="5">
-                {[...Array(5)].map((_, i) => (
-                  <Icon key={i} color="orange.400" fontSize="md" fill="currentColor"><LuStar /></Icon>
-                ))}
-              </HStack>
-              <Text color="blue.50" fontSize="sm" lineHeight="1.8" mb="6" fontStyle="italic">
-                &quot;{t.text}&quot;
-              </Text>
-              <HStack gap="3">
+        <Box
+          ref={scrollRef}
+          position="relative"
+          overflow="hidden"
+          cursor={needsScroll ? (isDragging ? "grabbing" : "grab") : "default"}
+          touchAction={needsScroll ? "pan-y" : undefined}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          css={needsScroll ? {
+            "&:hover [data-marquee]": { animationPlayState: "paused" },
+          } : undefined}
+          _after={needsScroll ? {
+            content: '""',
+            position: "absolute",
+            top: "0",
+            right: "0",
+            w: { base: "10", md: "80px" },
+            h: "full",
+            bgGradient: "to-r",
+            gradientFrom: "transparent",
+            gradientTo: "blue.950",
+            pointerEvents: "none",
+            zIndex: "2",
+          } : undefined}
+          _before={needsScroll ? {
+            content: '""',
+            position: "absolute",
+            top: "0",
+            left: "0",
+            w: { base: "10", md: "80px" },
+            h: "full",
+            bgGradient: "to-l",
+            gradientFrom: "transparent",
+            gradientTo: "blue.950",
+            pointerEvents: "none",
+            zIndex: "2",
+          } : undefined}
+        >
+          <style>{`@keyframes testimoniScrollH { 0% { transform: translateX(var(--drag-offset)) } 100% { transform: translateX(calc(-50% - var(--loop-gap) + var(--drag-offset))) } }`}</style>
+          <HStack
+            data-marquee
+            gap="6"
+            align="stretch"
+            animation={needsScroll && layoutPageWidth > 0 ? `testimoniScrollH ${scrollDuration}s linear infinite` : undefined}
+            w={needsScroll && layoutPageWidth > 0 ? `${layoutPageWidth * displayPages.length}px` : undefined}
+            style={{
+              "--loop-gap": `${pages.length * 12}px`,
+              "--drag-offset": `${dragOffset}px`,
+              animationPlayState: isDragging || isAutoPaused ? "paused" : "running",
+            } as React.CSSProperties}
+            flexShrink="0"
+          >
+            {displayPages.map((page, pi) => {
+              const mediaTestimonials = page.filter((testimonial) => (testimonial.media || []).length > 0).slice(0, 2)
+              const regularTestimonials = page.filter((testimonial) => (testimonial.media || []).length === 0)
+              const normalColumns = Array.from({ length: mediaTestimonials.length > 0 ? 1 : 3 }, () => [] as Testimonial[])
+
+              regularTestimonials.forEach((testimonial, index) => {
+                normalColumns[index % normalColumns.length].push(testimonial)
+              })
+
+              return (
                 <Box
-                  borderRadius="full"
-                  w="12"
-                  h="12"
+                  key={pi}
+                  flexShrink="0"
+                  w={needsScroll && layoutPageWidth > 0 ? `${layoutPageWidth}px` : "full"}
+                >
+                  <Grid
+                    templateColumns={`repeat(${Math.max(mediaTestimonials.length + normalColumns.length, 1)}, minmax(0, 1fr))`}
+                    gap="6"
+                    alignItems="start"
+                  >
+                    {mediaTestimonials.map((testimonial, index) => (
+                      <Box key={`media-${pi}-${testimonial.name}-${index}`} minW="0">
+                        {renderCard(testimonial, index, `p${pi}`)}
+                      </Box>
+                    ))}
+                    {normalColumns.map((column, columnIndex) => (
+                      <VStack key={`normal-column-${pi}-${columnIndex}`} gap="6" align="stretch" minW="0" h={mediaTestimonials.length > 0 ? "full" : "auto"}>
+                        {column.map((testimonial, index) => renderCard(testimonial, index, `p${pi}-normal-${columnIndex}`, mediaTestimonials.length > 0))}
+                      </VStack>
+                    ))}
+                  </Grid>
+                </Box>
+              )
+            })}
+          </HStack>
+        </Box>
+      </Container>
+
+      {/* Lightbox */}
+      <DialogRoot open={lightbox !== null} onOpenChange={(e) => { if (!e.open) setLightbox(null) }} size="full">
+        <DialogContent bg="blackAlpha.950" borderRadius="0" maxH="100vh" p="0">
+          <DialogHeader borderBottom="0" pb="0">
+            <DialogTitle color="white" fontSize="md" fontWeight="normal">
+              {lightbox?.name} — {lightbox ? `${lightbox.index + 1}/${lightbox.media.length}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <DialogBody p="0" display="flex" alignItems="center" justifyContent="center" minH="80vh" position="relative">
+            {lbCurrent && lbCurrent.type === "image" && (
+              <Image
+                src={lbCurrent.url}
+                alt={lightbox?.name}
+                maxW="90vw"
+                maxH="80vh"
+                objectFit="contain"
+              />
+            )}
+            {lbCurrent && lbCurrent.type === "video" && (
+              <video
+                src={lbCurrent.url}
+                controls
+                autoPlay
+                style={{ maxWidth: "90vw", maxHeight: "80vh", width: "100%" }}
+              />
+            )}
+            {lightbox && lightbox.media.length > 1 && (
+              <>
+                <Box
+                  position="absolute"
+                  left="4"
+                  top="50%"
+                  transform="translateY(-50%)"
+                  cursor="pointer"
+                  onClick={lbPrev}
+                  color="whiteAlpha.700"
+                  _hover={{ color: "white" }}
+                  fontSize="3xl"
+                  w="10"
+                  h="10"
                   display="flex"
                   alignItems="center"
                   justifyContent="center"
-                  flexShrink="0"
-                  overflow="hidden"
+                  borderRadius="full"
+                  bg="blackAlpha.500"
+                  _hoverBg="blackAlpha.700"
+                  transition="all 0.2s"
                 >
-                  {t.photoUrl ? (
-                    <Image src={t.photoUrl} alt={t.name} w="12" h="12" objectFit="cover" borderRadius="full" />
-                  ) : (
-                    <Box
-                      bgGradient="to-r"
-                      gradientFrom="orange.400"
-                      gradientTo="orange.600"
-                      borderRadius="full"
-                      w="12"
-                      h="12"
-                      display="flex"
-                      alignItems="center"
-                      justifyContent="center"
-                    >
-                      <Text fontWeight="bold" fontSize="md" color="white">{t.avatar}</Text>
-                    </Box>
-                  )}
+                  ‹
                 </Box>
-                <VStack gap="0" alignItems="flex-start">
-                  <Text fontWeight="bold" color="white" fontSize="sm">{t.name}</Text>
-                  <Text color="blue.300" fontSize="xs">{t.role}</Text>
-                </VStack>
-              </HStack>
-            </Box>
-          ))}
-        </Grid>
-      </Container>
+                <Box
+                  position="absolute"
+                  right="4"
+                  top="50%"
+                  transform="translateY(-50%)"
+                  cursor="pointer"
+                  onClick={lbNext}
+                  color="whiteAlpha.700"
+                  _hover={{ color: "white" }}
+                  fontSize="3xl"
+                  w="10"
+                  h="10"
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  borderRadius="full"
+                  bg="blackAlpha.500"
+                  _hoverBg="blackAlpha.700"
+                  transition="all 0.2s"
+                >
+                  ›
+                </Box>
+              </>
+            )}
+          </DialogBody>
+          <DialogFooter borderTop="0" pt="0">
+            <Button variant="ghost" color="white" onClick={() => setLightbox(null)}>Tutup</Button>
+          </DialogFooter>
+        </DialogContent>
+      </DialogRoot>
     </Box>
   )
 }
@@ -1147,7 +1665,7 @@ function PricingSection({ onDaftar }: { onDaftar: () => void }) {
             Biaya Pendidikan dan Pelatihan
           </Heading>
           <Text color="gray.600" maxW="2xl" fontSize="lg">
-            Biaya berlaku untuk diklat Awal/Guard, Skriner, dan SVP/Supervisor
+            Biaya berlaku untuk diklat Awal/Guard, Skriner/Junior AVSEC, dan SVP/Senior AVSEC
           </Text>
         </VStack>
 
@@ -1639,7 +2157,7 @@ function ContactSection() {
             </Text>
             <VStack gap="4" alignItems="flex-start" w="full">
               {[
-                { icon: LuPhone, label: "Telepon / WhatsApp", value: "+62 852-6754-2226" },
+                { icon: LuPhone, label: "Telepon / WhatsApp", value: "+62 852-1293-2226" },
                 { icon: LuMail, label: "Email", value: "info@aeroforte.id" },
                 { icon: LuMapPin, label: "Lokasi", value: "Indonesia" },
               ].map((item) => (
@@ -1659,6 +2177,7 @@ function ContactSection() {
                 { icon: LuFacebook, href: "https://www.facebook.com/profile.php?id=61575121584172" },
                 { icon: LuInstagram, href: "https://www.instagram.com/diklatavsecindonesia?stkn=cTd6bm9kcnQ1MjNm" },
                 { icon: LuYoutube, href: "#" },
+                { icon: FaTiktok, href: "https://www.tiktok.com/@diklat.avsec" },
               ].map((s, i) => (
                 <Box
                   key={i}
@@ -1750,6 +2269,7 @@ function Footer() {
                 { icon: LuFacebook, href: "#" },
                 { icon: LuInstagram, href: "https://instagram.com/aeroforte.id" },
                 { icon: LuYoutube, href: "#" },
+                { icon: FaTiktok, href: "https://www.tiktok.com/@diklat.avsec" },
               ].map((s, i) => (
                 <Box
                   key={i}
@@ -1879,6 +2399,8 @@ export default function LandingPage() {
   const promoVideoRef = React.useRef<HTMLVideoElement>(null)
   const playCountRef = React.useRef(0)
   const [hasPosters, setHasPosters] = React.useState(false)
+  const [activeVideo, setActiveVideo] = React.useState<VideoContent | null>(null)
+  const [defaultVideoEnabled, setDefaultVideoEnabled] = React.useState(true)
 
   React.useEffect(() => {
     fetchActivePosters().then((ps) => {
@@ -1887,14 +2409,23 @@ export default function LandingPage() {
         setPromoOpen(true)
       }
     })
+    fetchActiveVideo()
+      .then((v) => setActiveVideo(v))
+      .catch(() => {})
+    fetchVideoSettings()
+      .then((s) => setDefaultVideoEnabled(s.defaultVideoEnabled))
+      .catch(() => {})
     recordVisit("/")
   }, [])
 
+  const promoVideoSrc = activeVideo?.videoData || "/videopromosi.webm"
+  const videoEnabled = activeVideo !== null || defaultVideoEnabled
+
   React.useEffect(() => {
-    if (!posterOpen && hasPosters) {
+    if (!posterOpen && hasPosters && videoEnabled) {
       setPromoOpen(true)
     }
-  }, [posterOpen, hasPosters])
+  }, [posterOpen, hasPosters, videoEnabled])
 
   const closePoster = () => setPosterOpen(false)
 
@@ -1930,7 +2461,7 @@ export default function LandingPage() {
         <PosterOverlay onClose={closePoster} />
       )}
 
-      {promoOpen && (
+      {promoOpen && videoEnabled && (
         <Box
           position="fixed"
           inset="0"
@@ -1973,22 +2504,19 @@ export default function LandingPage() {
             </Box>
             <video
               ref={promoVideoRef}
-              src="/videopromosi.webm"
+              src={promoVideoSrc}
               autoPlay
               muted
               controls
-              w="full"
-              h="auto"
-              maxH="80vh"
-              style={{ display: "block", borderRadius: "0.5rem", objectFit: "contain", width: "100%" }}
+              style={{ display: "block", borderRadius: "0.5rem", objectFit: "contain", width: "100%", maxHeight: "80vh" }}
               onEnded={handleVideoEnded}
             />
           </Box>
         </Box>
       )}
       <HeroSection onDaftar={goDaftar} />
-      <StatsBar />
       <HowItWorksSection />
+      <StatsBar />
       <ProgramSection onSyarat={openSyarat} onDaftar={goDaftar} />
       <TestimoniSection />
       <LegalitasSection />
@@ -2012,7 +2540,7 @@ export default function LandingPage() {
         right="6"
         zIndex="banner"
         as="a"
-        href="https://wa.me/6285267542226?text=Halo%20Aero%20Forte%20Indonesia%2C%20saya%20ingin%20bertanya%20tentang%20pendaftaran"
+        href="https://wa.me/6285212932226?text=Halo%20Aero%20Forte%20Indonesia%2C%20saya%20ingin%20bertanya%20tentang%20pendaftaran"
         target="_blank"
         rel="noopener noreferrer"
         bg="green.500"

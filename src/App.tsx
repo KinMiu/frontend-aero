@@ -5,6 +5,7 @@ import LoginPage from "@/pages/LoginPage"
 import ArticleDetailPage from "@/pages/ArticleDetailPage"
 import PublicTestimonialPage from "@/pages/PublicTestimonialPage"
 import PublicDocumentPage from "@/pages/PublicDocumentPage"
+import WebinarRegisterPage from "@/pages/WebinarRegisterPage"
 import SuperAdminApp from "@/pages/superadmin/SuperAdminApp"
 import OfficialAdminApp from "@/pages/officialadmin/OfficialAdminApp"
 import { getCurrentUser } from "@/store"
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="/artikel/:slug" element={<ArticleDetailPage />} />
         <Route path="/testimoni-public/:token" element={<PublicTestimonialPage />} />
         <Route path="/dokumen-public/:token" element={<PublicDocumentPage />} />
+        <Route path="/webinar/:token" element={<WebinarRegisterPage />} />
         <Route
           path="/admin/*"
           element={

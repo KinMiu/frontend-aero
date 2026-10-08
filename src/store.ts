@@ -169,6 +169,11 @@ export async function deleteOpenRegistration(id: string): Promise<void> {
 
 // ---- Testimonials ----
 
+export interface TestimonialMedia {
+  url: string
+  type: "image" | "video"
+}
+
 export interface Testimonial {
   id: string
   name: string
@@ -176,6 +181,7 @@ export interface Testimonial {
   text: string
   avatar: string
   photoUrl?: string
+  media?: TestimonialMedia[]
   rating: number
   createdAt: string
 }
@@ -349,6 +355,7 @@ export interface AdPoster {
   startsAt: string
   endsAt: string
   createdAt: string
+  webinarId?: string | null
 }
 
 export async function getActivePosters(): Promise<AdPoster[]> {
@@ -367,14 +374,15 @@ export async function addPoster(
   images: string[],
   title: string,
   startsAt: string,
-  endsAt: string
+  endsAt: string,
+  webinarId?: string | null
 ): Promise<AdPoster> {
-  return api.post<AdPoster>("/ad-posters", { images, title, startsAt, endsAt })
+  return api.post<AdPoster>("/ad-posters", { images, title, startsAt, endsAt, webinarId: webinarId || null })
 }
 
 export async function updatePoster(
   id: string,
-  updates: { images?: string[]; title?: string; startsAt?: string; endsAt?: string }
+  updates: { images?: string[]; title?: string; startsAt?: string; endsAt?: string; webinarId?: string | null }
 ): Promise<AdPoster> {
   return api.put<AdPoster>(`/ad-posters/${id}`, updates)
 }
@@ -415,6 +423,128 @@ export async function recordVisit(page: string = "/"): Promise<void> {
 
 export async function getVisitStats(): Promise<VisitStats> {
   return api.get<VisitStats>("/visits/stats")
+}
+
+// ---- Video Content ----
+
+export interface VideoContent {
+  id: string
+  title: string
+  videoData: string
+  isActive: boolean
+  createdAt: string
+}
+
+export async function getAllVideos(): Promise<VideoContent[]> {
+  return api.get<VideoContent[]>("/video-content")
+}
+
+export async function getActiveVideo(): Promise<VideoContent | null> {
+  return api.get<VideoContent | null>("/video-content/active")
+}
+
+export async function uploadVideo(title: string, videoData: string): Promise<VideoContent> {
+  return api.post<VideoContent>("/video-content", { title, videoData })
+}
+
+export async function deleteVideo(id: string): Promise<void> {
+  await api.delete(`/video-content/${id}`)
+}
+
+export async function toggleVideo(id: string, isActive: boolean): Promise<VideoContent> {
+  return api.put<VideoContent>(`/video-content/${id}/toggle`, { isActive })
+}
+
+// ---- Video Settings ----
+
+export interface VideoSettings {
+  defaultVideoEnabled: boolean
+}
+
+export async function getVideoSettings(): Promise<VideoSettings> {
+  return api.get<VideoSettings>("/video-settings/public")
+}
+
+export async function toggleDefaultVideo(enabled: boolean): Promise<VideoSettings> {
+  return api.put<VideoSettings>("/video-settings/default-toggle", { enabled })
+}
+
+// ---- Webinars ----
+
+export interface WebinarField {
+  label: string
+  type: string
+  required: boolean
+}
+
+export interface Webinar {
+  id: string
+  title: string
+  date: string
+  time: string
+  description: string
+  waLink: string
+  isActive: boolean
+  fields: WebinarField[]
+  createdAt: string
+}
+
+export interface WebinarRegistration {
+  id: string
+  webinarId: string
+  data: Record<string, string>
+  createdAt: string
+}
+
+export async function getActiveWebinars(): Promise<Webinar[]> {
+  try {
+    return await api.get<Webinar[]>("/webinars/active")
+  } catch {
+    return []
+  }
+}
+
+export async function getAllWebinars(): Promise<Webinar[]> {
+  return api.get<Webinar[]>("/webinars")
+}
+
+export async function getWebinarById(id: string): Promise<Webinar> {
+  return api.get<Webinar>(`/webinars/${id}`)
+}
+
+export async function getWebinarByToken(token: string): Promise<Webinar | null> {
+  try {
+    return await api.get<Webinar>(`/webinars/public/${token}`)
+  } catch {
+    return null
+  }
+}
+
+export async function createWebinar(data: {
+  title: string
+  date: string
+  time: string
+  description: string
+  waLink: string
+  fields: WebinarField[]
+}): Promise<Webinar> {
+  return api.post<Webinar>("/webinars", data)
+}
+
+export async function updateWebinar(id: string, updates: Partial<Webinar>): Promise<Webinar> {
+  return api.put<Webinar>(`/webinars/${id}`, updates)
+}
+
+export async function deleteWebinar(id: string): Promise<void> {
+  await api.delete(`/webinars/${id}`)
+}
+
+export async function getWebinarRegistrations(id: string): Promise<WebinarRegistration[]> {
+  return api.get<WebinarRegistration[]>(`/webinars/${id}/registrations`)
+}
+
+export async function registerWebinar(id: string, data: Record<string, string>): Promise<{ registration: WebinarRegistration; waLink: string }> {
+  return api.post<{ registration: WebinarRegistration; waLink: string }>(`/webinars/${id}/register`, { data })
 }
 
 export type { KelasOption }
