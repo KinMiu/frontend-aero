@@ -182,7 +182,7 @@ export default function OfficialDashboard() {
                   </Box>
                   <Stack gap="0">
                     <Text fontWeight="semibold" fontSize="sm" color="gray.900">{s.nama}</Text>
-                    <Text fontSize="xs" color="gray.500">{s.noHp}</Text>
+                    <Text fontSize="xs" color="gray.500">{s.email}</Text>
                   </Stack>
                 </HStack>
                 <Text fontSize="xs" color="gray.500">

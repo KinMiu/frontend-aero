@@ -77,7 +77,7 @@ const programs = [
   },
   {
     icon: LuPlane,
-    title: "Skriner/Junior AVSEC",
+    title: "Skriner AVSEC",
     description:
       "Program diklat lanjutan setelah memiliki lisensi Awal/Guard AVSEC.",
     color: "orange",
@@ -98,7 +98,7 @@ const programs = [
   },
   {
     icon: LuGraduationCap,
-    title: "SVP/Senior AVSEC",
+    title: "SVP/Supervisor AVSEC",
     description:
       "Program diklat tertinggi bagi personel pengamanan penerbangan, harus sudah memiliki lisensi Skriner.",
     color: "teal",
@@ -1060,6 +1060,7 @@ function TestimoniSection() {
     index: number
     name: string
   } | null>(null)
+  const [expandedTestimonial, setExpandedTestimonial] = React.useState<Testimonial | null>(null)
 
   React.useEffect(() => {
     let isActive = true
@@ -1109,22 +1110,35 @@ function TestimoniSection() {
     })
   }, [testimonials])
 
-  const pages = React.useMemo(() => {
-    if (sortedTestimonials.length === 0) return [[]]
+  const testimonialHasMedia = (item: Testimonial) => (item.media || []).some((media) => Boolean(media?.url))
 
-    const result: Testimonial[][] = []
-    for (let i = 0; i < sortedTestimonials.length; i += 4) {
-      const page = sortedTestimonials.slice(i, i + 4)
-      if (page.length < 4) {
-        page.push(...sortedTestimonials.slice(0, 4 - page.length))
-      }
-      result.push(page)
+  const testimonialColumns = React.useMemo(() => {
+    const mediaItems = sortedTestimonials.filter((item) => testimonialHasMedia(item))
+    const regularItems = sortedTestimonials.filter((item) => !testimonialHasMedia(item))
+    const columns: Testimonial[][] = []
+
+    mediaItems.forEach((item) => columns.push([item]))
+    for (let i = 0; i < regularItems.length; i += 2) {
+      columns.push(regularItems.slice(i, i + 2))
     }
-    return result
+
+    return columns
   }, [sortedTestimonials])
 
   const isDesktop = useBreakpointValue({ base: false, md: true })
-  const needsScroll = sortedTestimonials.length > 4 || (!isDesktop && sortedTestimonials.length > 0)
+  const columnsPerPage = isDesktop ? 2 : 1
+
+  const pages = React.useMemo(() => {
+    if (testimonialColumns.length === 0) return [[]] as Testimonial[][][]
+
+    const result: Testimonial[][][] = []
+    for (let i = 0; i < testimonialColumns.length; i += columnsPerPage) {
+      result.push(testimonialColumns.slice(i, i + columnsPerPage))
+    }
+    return result
+  }, [testimonialColumns, columnsPerPage])
+
+  const needsScroll = testimonialColumns.length > columnsPerPage
   const displayPages = needsScroll ? [...pages, ...pages] : pages
   const scrollDuration = Math.max(pages.length * 14, 36)
 
@@ -1136,7 +1150,23 @@ function TestimoniSection() {
   const dragX = React.useRef(0)
   const didDrag = React.useRef(false)
   const resumeTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
-  const layoutPageWidth = isDesktop ? pageWidth : Math.max(pageWidth, 1200)
+  const testimonialCardWidth = 456
+  const testimonialGap = isDesktop ? 24 : 16
+  const mobileCardWidth = pageWidth > 0 ? pageWidth : 0
+  const cardScale = isDesktop || mobileCardWidth === 0 ? 1 : Math.min(Math.max(mobileCardWidth / testimonialCardWidth, 0.68), 1)
+  const regularCardHeight = Math.round(268 * cardScale)
+  const mediaCardHeight = Math.round(560 * cardScale)
+
+  const getPageColumnCount = (page: Testimonial[][]) => Math.max(page.length, 1)
+
+  const getPageContentWidth = (page: Testimonial[][]) => {
+    if (!isDesktop) return mobileCardWidth
+    const columnCount = getPageColumnCount(page)
+    return columnCount * testimonialCardWidth + Math.max(columnCount - 1, 0) * testimonialGap
+  }
+
+  const totalTrackWidth = displayPages.reduce((sum, page) => sum + getPageContentWidth(page), 0)
+  const layoutReady = pageWidth > 0
 
   const clearResumeTimer = () => {
     if (resumeTimer.current) {
@@ -1147,6 +1177,8 @@ function TestimoniSection() {
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!needsScroll) return
+    const target = event.target as HTMLElement
+    if (target.closest("button, a, video")) return
     clearResumeTimer()
     didDrag.current = false
     dragX.current = event.clientX
@@ -1183,40 +1215,39 @@ function TestimoniSection() {
   React.useEffect(() => () => clearResumeTimer(), [])
 
   React.useEffect(() => {
-    if (!needsScroll) return
     const el = scrollRef.current
     if (!el) return
     const update = () => setPageWidth(el.offsetWidth)
     update()
     window.addEventListener("resize", update)
     return () => window.removeEventListener("resize", update)
-  }, [needsScroll])
+  }, [needsScroll, columnsPerPage])
 
-  const renderCard = (t: Testimonial, idx: number, pageKey: string, fillHeight = false) => {
-    const media = t.media || []
+  const renderCard = (t: Testimonial, idx: number, pageKey: string, _fillHeight = false, fixedWidth = false) => {
+    const media = (t.media || []).filter((item) => Boolean(item?.url))
     return (
       <Box
         key={`${pageKey}-${t.name}-${idx}`}
         bg="white/5"
         backdropFilter="blur(12px)"
-        borderRadius="2xl"
-        p="8"
+        borderRadius={{ base: "xl", md: "2xl" }}
+        p={{ base: "5", md: "8" }}
         borderWidth="1px"
         borderColor="white/10"
         _hover={{ bg: "white/10", transform: { base: "none", md: "translateY(-4px)" } }}
         transition="all 0.3s"
         display="flex"
         flexDirection="column"
-        alignSelf="stretch"
+        alignSelf="flex-start"
         w="full"
         maxW="full"
         overflow="hidden"
-        flex={fillHeight ? "1" : undefined}
-        minH={media.length > 0 ? "500px" : "168px"}
-        h={fillHeight ? "full" : "auto"}
+        flex="none"
+        minH={media.length > 0 ? `${mediaCardHeight}px` : `${regularCardHeight}px`}
+        h={media.length > 0 ? `${mediaCardHeight}px` : `${regularCardHeight}px`}
       >
         {media.length > 0 && (
-          <Box mb="5" minW="0">
+          <Box mb={{ base: "3", md: "5" }} minW="0">
             <Box
               borderRadius="xl"
               overflow="hidden"
@@ -1311,7 +1342,7 @@ function TestimoniSection() {
           </Box>
         )}
         <HStack gap="1" mb="4">
-          {[...Array(5)].map((_, i) => (
+          {[...Array(Math.max(0, Math.min(5, t.rating)))].map((_, i) => (
             <Icon key={i} color="orange.400" fontSize="md" fill="currentColor"><LuStar /></Icon>
           ))}
         </HStack>
@@ -1319,14 +1350,34 @@ function TestimoniSection() {
           color="blue.50"
           fontSize="sm"
           lineHeight="1.7"
-          mb="5"
+          mb="2"
           fontStyle="italic"
           flex="1"
           overflowWrap="anywhere"
           wordBreak="break-word"
+          lineClamp={{ base: 4, md: media.length > 0 ? 5 : 3 }}
         >
           &quot;{t.text}&quot;
         </Text>
+        {t.text.length > 150 && (
+          <Button
+            variant="plain"
+            size="xs"
+            color="orange.300"
+            alignSelf="flex-start"
+            px="0"
+            mb="4"
+            onPointerDown={(event) => event.stopPropagation()}
+            onPointerUp={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation()
+              setExpandedTestimonial(t)
+            }}
+            _hover={{ color: "orange.200", textDecoration: "underline" }}
+          >
+            Lihat selengkapnya
+          </Button>
+        )}
         <HStack gap="3" minW="0" align="center">
           <Box
             borderRadius="full"
@@ -1431,45 +1482,40 @@ function TestimoniSection() {
           <style>{`@keyframes testimoniScrollH { 0% { transform: translateX(var(--drag-offset)) } 100% { transform: translateX(calc(-50% - var(--loop-gap) + var(--drag-offset))) } }`}</style>
           <HStack
             data-marquee
-            gap="6"
+            gap={`${testimonialGap}px`}
             align="stretch"
-            animation={needsScroll && layoutPageWidth > 0 ? `testimoniScrollH ${scrollDuration}s linear infinite` : undefined}
-            w={needsScroll && layoutPageWidth > 0 ? `${layoutPageWidth * displayPages.length}px` : undefined}
+            animation={needsScroll && layoutReady ? `testimoniScrollH ${scrollDuration}s linear infinite` : undefined}
+            w={needsScroll && layoutReady ? `${totalTrackWidth}px` : "full"}
             style={{
-              "--loop-gap": `${pages.length * 12}px`,
+              "--loop-gap": `${pages.length * testimonialGap}px`,
               "--drag-offset": `${dragOffset}px`,
               animationPlayState: isDragging || isAutoPaused ? "paused" : "running",
             } as React.CSSProperties}
             flexShrink="0"
           >
             {displayPages.map((page, pi) => {
-              const mediaTestimonials = page.filter((testimonial) => (testimonial.media || []).length > 0).slice(0, 2)
-              const regularTestimonials = page.filter((testimonial) => (testimonial.media || []).length === 0)
-              const normalColumns = Array.from({ length: mediaTestimonials.length > 0 ? 1 : 3 }, () => [] as Testimonial[])
-
-              regularTestimonials.forEach((testimonial, index) => {
-                normalColumns[index % normalColumns.length].push(testimonial)
-              })
+              const columnCount = getPageColumnCount(page)
+              const pageContentWidth = getPageContentWidth(page)
 
               return (
                 <Box
                   key={pi}
                   flexShrink="0"
-                  w={needsScroll && layoutPageWidth > 0 ? `${layoutPageWidth}px` : "full"}
+                  w={layoutReady ? `${pageContentWidth}px` : "full"}
                 >
                   <Grid
-                    templateColumns={`repeat(${Math.max(mediaTestimonials.length + normalColumns.length, 1)}, minmax(0, 1fr))`}
-                    gap="6"
+                    w="full"
+                    maxW="full"
+                    templateColumns={`repeat(${Math.max(columnCount, 1)}, minmax(0, 1fr))`}
+                    gap={`${testimonialGap}px`}
                     alignItems="start"
+                    gridAutoFlow="row"
                   >
-                    {mediaTestimonials.map((testimonial, index) => (
-                      <Box key={`media-${pi}-${testimonial.name}-${index}`} minW="0">
-                        {renderCard(testimonial, index, `p${pi}`)}
-                      </Box>
-                    ))}
-                    {normalColumns.map((column, columnIndex) => (
-                      <VStack key={`normal-column-${pi}-${columnIndex}`} gap="6" align="stretch" minW="0" h={mediaTestimonials.length > 0 ? "full" : "auto"}>
-                        {column.map((testimonial, index) => renderCard(testimonial, index, `p${pi}-normal-${columnIndex}`, mediaTestimonials.length > 0))}
+                    {page.map((column, columnIndex) => (
+                      <VStack key={`column-${pi}-${columnIndex}`} gap={`${testimonialGap}px`} align="stretch" minW="0">
+                        {column.map((testimonial, index) =>
+                          renderCard(testimonial, index, `p${pi}-c${columnIndex}`, false, true)
+                        )}
                       </VStack>
                     ))}
                   </Grid>
@@ -1479,6 +1525,84 @@ function TestimoniSection() {
           </HStack>
         </Box>
       </Container>
+
+      <DialogRoot open={expandedTestimonial !== null} onOpenChange={(e) => { if (!e.open) setExpandedTestimonial(null) }} size={(expandedTestimonial?.media || []).length > 0 ? "lg" : "md"}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle color="gray.900">Testimoni {expandedTestimonial?.name}</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            <VStack gap="4" align="stretch">
+              {(expandedTestimonial?.media || []).length > 0 && (
+                <VStack gap="2" align="stretch">
+                  <Box
+                    borderRadius="xl"
+                    overflow="hidden"
+                    cursor="pointer"
+                    onClick={() => {
+                      if (expandedTestimonial) openLightbox(expandedTestimonial, 0)
+                    }}
+                  >
+                    {expandedTestimonial?.media?.[0]?.type === "video" ? (
+                      <Box position="relative">
+                        <video
+                          src={expandedTestimonial.media[0].url}
+                          controls
+                          preload="metadata"
+                          style={{ width: "100%", aspectRatio: "16/9", objectFit: "cover", display: "block", background: "#111" }}
+                          onClick={(event) => event.stopPropagation()}
+                        />
+                      </Box>
+                    ) : (
+                      <Image
+                        src={expandedTestimonial?.media?.[0]?.url}
+                        alt={expandedTestimonial?.name}
+                        w="full"
+                        aspectRatio="16/9"
+                        objectFit="cover"
+                      />
+                    )}
+                  </Box>
+                  {(expandedTestimonial?.media || []).length > 1 && (
+                    <HStack gap="2" overflowX="auto" css={{ scrollbarWidth: "none", "&::-webkit-scrollbar": { display: "none" } }}>
+                      {expandedTestimonial?.media?.map((item, mediaIndex) => (
+                        <Box
+                          key={`${item.url}-${mediaIndex}`}
+                          w="14"
+                          h="14"
+                          borderRadius="md"
+                          overflow="hidden"
+                          cursor="pointer"
+                          flexShrink="0"
+                          borderWidth={mediaIndex === 0 ? "2px" : "1px"}
+                          borderColor={mediaIndex === 0 ? "orange.400" : "blackAlpha.200"}
+                          onClick={() => {
+                            if (expandedTestimonial) openLightbox(expandedTestimonial, mediaIndex)
+                          }}
+                        >
+                          {item.type === "video" ? (
+                            <Box w="full" h="full" display="flex" alignItems="center" justifyContent="center" bg="blackAlpha.800">
+                              <Icon color="white" fontSize="sm"><LuPlay /></Icon>
+                            </Box>
+                          ) : (
+                            <Image src={item.url} alt={`Media ${mediaIndex + 1}`} w="full" h="full" objectFit="cover" />
+                          )}
+                        </Box>
+                      ))}
+                    </HStack>
+                  )}
+                </VStack>
+              )}
+              <Text color="gray.700" lineHeight="1.8" fontStyle="italic">
+                &quot;{expandedTestimonial?.text}&quot;
+              </Text>
+            </VStack>
+          </DialogBody>
+          <DialogFooter>
+            <Button colorPalette="orange" onClick={() => setExpandedTestimonial(null)}>Tutup</Button>
+          </DialogFooter>
+        </DialogContent>
+      </DialogRoot>
 
       {/* Lightbox */}
       <DialogRoot open={lightbox !== null} onOpenChange={(e) => { if (!e.open) setLightbox(null) }} size="full">
@@ -1665,7 +1789,7 @@ function PricingSection({ onDaftar }: { onDaftar: () => void }) {
             Biaya Pendidikan dan Pelatihan
           </Heading>
           <Text color="gray.600" maxW="2xl" fontSize="lg">
-            Biaya berlaku untuk diklat Awal/Guard, Skriner/Junior AVSEC, dan SVP/Senior AVSEC
+            Biaya berlaku untuk diklat Awal/Guard, Skriner, dan SVP/Supervisor
           </Text>
         </VStack>
 

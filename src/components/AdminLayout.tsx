@@ -191,7 +191,7 @@ export default function AdminLayout({ children, navItems }: AdminLayoutProps) {
   )
 
   return (
-    <Flex minH="100vh" bg="gray.50">
+    <Flex minH="100vh" w="full" maxW="100vw" overflowX="hidden" bg="gray.50">
       {/* Sidebar - Desktop */}
       <Box
         display={{ base: "none", md: "flex" }}
@@ -239,7 +239,7 @@ export default function AdminLayout({ children, navItems }: AdminLayoutProps) {
       </Box>
 
       {/* Main content */}
-      <Box flex="1" ml={{ base: "0", md: "64" }} minH="100vh">
+      <Box flex="1" minW="0" w="full" maxW="100%" ml={{ base: "0", md: "64" }} minH="100vh" overflowX="hidden">
         {/* Mobile topbar */}
         <Box
           display={{ base: "flex", md: "none" }}
@@ -263,7 +263,7 @@ export default function AdminLayout({ children, navItems }: AdminLayoutProps) {
           <Text fontWeight="bold" fontSize="md" color="gray.900">AeroForte</Text>
         </Box>
 
-        <Box p={{ base: "4", md: "8" }}>
+        <Box p={{ base: "4", md: "8" }} minW="0" maxW="100%">
           {children}
         </Box>
       </Box>

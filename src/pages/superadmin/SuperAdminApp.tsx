@@ -1,5 +1,5 @@
 import { Route, Routes, Navigate } from "react-router-dom"
-import { LuLayoutDashboard, LuUserCheck, LuFileText, LuFolderOpen, LuCalendarCheck, LuStar, LuFileText as LuArticle, LuImage, LuVideo, LuPresentation } from "react-icons/lu"
+import { LuLayoutDashboard, LuUserCheck, LuFileText, LuFolderOpen, LuCalendarCheck, LuStar, LuFileText as LuArticle, LuImage, LuVideo, LuPresentation, LuWallet, LuBanknote } from "react-icons/lu"
 import AdminLayout from "@/components/AdminLayout"
 import SuperAdminDashboard from "./Dashboard"
 import ManageOfficials from "./ManageOfficials"
@@ -10,6 +10,8 @@ import ArtikelPage from "./Artikel"
 import PosterIklanPage from "./PosterIklan"
 import VideoKontenPage from "./VideoKonten"
 import WebinarPage from "./Webinar"
+import BiayaPendaftaranPage from "./BiayaPendaftaran"
+import DaftarUlangPage from "./DaftarUlang"
 
 const navItems = [
   { label: "Dashboard", path: "/admin/dashboard", icon: LuLayoutDashboard },
@@ -27,6 +29,15 @@ const navItems = [
       { label: "Konten Video", path: "/admin/konten/video", icon: LuVideo },
     ],
   },
+  {
+    label: "Keuangan",
+    path: "/admin/keuangan/pendaftaran",
+    icon: LuWallet,
+    children: [
+      { label: "Biaya Pendaftaran", path: "/admin/keuangan/pendaftaran", icon: LuWallet },
+      { label: "Daftar Ulang", path: "/admin/keuangan/daftar-ulang", icon: LuBanknote },
+    ],
+  },
   { label: "Laporan", path: "/admin/reports", icon: LuFileText },
 ]
 
@@ -41,6 +52,8 @@ export default function SuperAdminApp() {
         <Route path="konten/testimoni" element={<TestimoniPage />} />
         <Route path="konten/artikel" element={<ArtikelPage />} />
         <Route path="konten/poster" element={<PosterIklanPage />} />
+        <Route path="keuangan/pendaftaran" element={<BiayaPendaftaranPage />} />
+        <Route path="keuangan/daftar-ulang" element={<DaftarUlangPage />} />
         <Route path="konten/webinar" element={<WebinarPage />} />
         <Route path="konten/video" element={<VideoKontenPage />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />

@@ -31,6 +31,10 @@ export const KELAS_OPTIONS: KelasOption[] = [
   "INSPECTOR KEAMANAN INTERNAL",
 ]
 
+export type PaymentStatus = "belum_bayar" | "proses" | "berhasil"
+export type InterviewStatus = "belum" | "terjadwal" | "lulus" | "tidak_lulus"
+export type FinalStatus = "belum" | "siap_diklat"
+
 export interface Student {
   id: string
   pilihanKelas: KelasOption
@@ -58,6 +62,16 @@ export interface Student {
   namaIbu: string
   tempatTanggalLahirIbu: string
   registeredAt: string
+  trackingToken: string
+  paymentStatus: PaymentStatus
+  paymentProof: string
+  reRegistrationStatus: PaymentStatus
+  reRegistrationProof: string
+  interviewStatus: InterviewStatus
+  interviewDate: string
+  interviewTime: string
+  interviewZoomLink: string
+  finalStatus: FinalStatus
 }
 
 // ---- Auth ----
@@ -130,7 +144,7 @@ export async function getStudent(id: string): Promise<Student> {
   return api.get<Student>(`/students/${id}`);
 }
 
-export async function addStudent(student: Omit<Student, "id" | "registeredAt">): Promise<Student> {
+export async function addStudent(student: Omit<Student, "id" | "registeredAt" | "trackingToken" | "paymentStatus" | "paymentProof" | "interviewStatus" | "interviewZoomLink" | "finalStatus">): Promise<Student> {
   return api.post<Student>("/students", student);
 }
 
@@ -140,6 +154,42 @@ export async function updateStudent(id: string, data: Partial<Student>): Promise
 
 export async function deleteStudent(id: string): Promise<void> {
   await api.delete(`/students/${id}`);
+}
+
+export async function getStudentByToken(token: string): Promise<Student | null> {
+  try {
+    return await api.get<Student>(`/students/track/${token}`);
+  } catch {
+    return null;
+  }
+}
+
+export async function submitPayment(token: string, paymentProof: string): Promise<Student> {
+  return api.put<Student>(`/students/pay/${token}`, { paymentProof });
+}
+
+export async function submitReRegistrationPayment(token: string, paymentProof: string): Promise<Student> {
+  return api.put<Student>(`/students/re-registration-pay/${token}`, { paymentProof });
+}
+
+export async function resetReRegistrationPayment(token: string): Promise<Student> {
+  return api.put<Student>(`/students/re-registration-reset/${token}`, {});
+}
+
+export async function confirmPayment(studentId: string): Promise<Student> {
+  return api.put<Student>(`/students/${studentId}/confirm-payment`);
+}
+
+export async function confirmReRegistrationPayment(studentId: string): Promise<Student> {
+  return api.put<Student>(`/students/${studentId}/confirm-re-registration`);
+}
+
+export async function scheduleInterview(studentId: string, interviewDate: string, interviewTime: string, interviewZoomLink: string): Promise<Student> {
+  return api.put<Student>(`/students/${studentId}/schedule-interview`, { interviewDate, interviewTime, interviewZoomLink });
+}
+
+export async function setInterviewResult(studentId: string, result: "lulus" | "tidak_lulus"): Promise<Student> {
+  return api.put<Student>(`/students/${studentId}/interview-result`, { result });
 }
 
 // ---- Open Registration ----
@@ -300,7 +350,51 @@ export interface UploadedDocument {
   fileName: string
   fileType: string
   filePath: string
-  uploadedAt: string
+  documentLabel?: string
+  createdAt: string
+}
+
+// ---- Document Settings ----
+
+export interface DocumentSetting {
+  id: string
+  label: string
+  fileType: "any" | "image" | "pdf"
+  required: boolean
+  isActive: boolean
+  createdAt: string
+}
+
+export async function getDocumentSettings(): Promise<DocumentSetting[]> {
+  return api.get<DocumentSetting[]>("/document-settings")
+}
+
+export async function getActiveDocumentSettings(): Promise<DocumentSetting[]> {
+  try {
+    return await api.get<DocumentSetting[]>("/document-settings/active")
+  } catch {
+    return []
+  }
+}
+
+export async function createDocumentSetting(data: {
+  label: string
+  fileType: "any"
+  required: boolean
+  isActive: boolean
+}): Promise<DocumentSetting> {
+  return api.post<DocumentSetting>("/document-settings", data)
+}
+
+export async function updateDocumentSetting(
+  id: string,
+  updates: Partial<Omit<DocumentSetting, "id" | "createdAt">>
+): Promise<DocumentSetting> {
+  return api.put<DocumentSetting>(`/document-settings/${id}`, updates)
+}
+
+export async function deleteDocumentSetting(id: string): Promise<void> {
+  await api.delete(`/document-settings/${id}`)
 }
 
 export async function getUploadedDocuments(): Promise<UploadedDocument[]> {
@@ -311,8 +405,48 @@ export async function getDocumentsByStudentId(studentId: string): Promise<Upload
   return api.get<UploadedDocument[]>(`/documents?studentId=${studentId}`);
 }
 
-export async function addUploadedDocument(file: File, studentId: string): Promise<UploadedDocument> {
-  return api.upload("/documents", file, { studentId });
+export async function getDocumentsByTrackToken(token: string): Promise<UploadedDocument[]> {
+  try {
+    const result = await api.get<{ student: Student; docs: UploadedDocument[] }>(`/documents/track/${token}`);
+    return result.docs;
+  } catch {
+    return [];
+  }
+}
+
+export async function uploadTrackingDocument(
+  token: string,
+  fileData: string,
+  fileName: string,
+  fileType: string,
+  documentLabel?: string
+): Promise<UploadedDocument> {
+  return api.post<UploadedDocument>(`/documents/track/${token}`, {
+    fileName,
+    fileType,
+    filePath: fileData,
+    documentLabel: documentLabel || "",
+  });
+}
+
+export async function deleteTrackingDocument(token: string, docId: string): Promise<void> {
+  await api.delete(`/documents/track/${token}/${docId}`);
+}
+
+export async function addUploadedDocument(
+  fileData: string,
+  studentId: string,
+  fileName: string,
+  fileType: string,
+  documentLabel?: string
+): Promise<UploadedDocument> {
+  return api.post<UploadedDocument>("/documents", {
+    studentId,
+    fileName,
+    fileType,
+    filePath: fileData,
+    documentLabel: documentLabel || "",
+  });
 }
 
 export async function getPublicDocumentData(token: string): Promise<{ student: Student; docs: UploadedDocument[] } | null> {
@@ -323,8 +457,19 @@ export async function getPublicDocumentData(token: string): Promise<{ student: S
   }
 }
 
-export async function uploadPublicDocument(token: string, file: File): Promise<UploadedDocument> {
-  return api.upload(`/documents/public/${token}`, file);
+export async function uploadPublicDocument(
+  token: string,
+  fileData: string,
+  fileName: string,
+  fileType: string,
+  documentLabel?: string
+): Promise<UploadedDocument> {
+  return api.post<UploadedDocument>(`/documents/public/${token}`, {
+    fileName,
+    fileType,
+    filePath: fileData,
+    documentLabel: documentLabel || "",
+  });
 }
 
 export async function deletePublicDocument(token: string, docId: string): Promise<void> {
@@ -545,6 +690,48 @@ export async function getWebinarRegistrations(id: string): Promise<WebinarRegist
 
 export async function registerWebinar(id: string, data: Record<string, string>): Promise<{ registration: WebinarRegistration; waLink: string }> {
   return api.post<{ registration: WebinarRegistration; waLink: string }>(`/webinars/${id}/register`, { data })
+}
+
+// ---- Registration Fee ----
+
+export interface BankAccount {
+  id?: string
+  bankName: string
+  accountHolder: string
+  accountNumber: string
+}
+
+export interface RegistrationFee {
+  id: string
+  qrisImage: string
+  bankAccounts: BankAccount[]
+  amount: number
+}
+
+export interface ReRegistrationFee {
+  id: string
+  amount: number
+  bankName: string
+  accountHolder: string
+  accountNumber: string
+  whatsappGroupLink: string
+  whatsappAdminNumber: string
+}
+
+export async function getRegistrationFee(): Promise<RegistrationFee | null> {
+  return api.get<RegistrationFee | null>("/registration-fee")
+}
+
+export async function updateRegistrationFee(data: Omit<RegistrationFee, "id">): Promise<RegistrationFee> {
+  return api.put<RegistrationFee>("/registration-fee", data)
+}
+
+export async function getReRegistrationFee(): Promise<ReRegistrationFee | null> {
+  return api.get<ReRegistrationFee | null>("/re-registration-fee")
+}
+
+export async function updateReRegistrationFee(data: Omit<ReRegistrationFee, "id">): Promise<ReRegistrationFee> {
+  return api.put<ReRegistrationFee>("/re-registration-fee", data)
 }
 
 export type { KelasOption }
