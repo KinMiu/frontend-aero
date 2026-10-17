@@ -27,6 +27,8 @@ import {
   LuFileText,
   LuEye,
   LuWallet,
+  LuChevronDown,
+  LuChevronUp,
 } from "react-icons/lu"
 import {
   getStudents,
@@ -82,6 +84,7 @@ export default function OfficialReports() {
   const [reRegModalStudent, setReRegModalStudent] = useState<Student | null>(null)
   const [reRegConfirming, setReRegConfirming] = useState(false)
   const [reRegFullPreview, setReRegFullPreview] = useState(false)
+  const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null)
 
   useEffect(() => {
     getStudents().then(setStudents).catch(() => {})
@@ -501,7 +504,86 @@ export default function OfficialReports() {
           </HStack>
         </Box>
 
-        <Table.Root>
+        <Stack display={{ base: "flex", md: "none" }} gap="3" p="3">
+          {sorted.map((s, i) => {
+            const isExpanded = expandedStudentId === s.id
+            const hasSchedule = s.interviewStatus === "terjadwal" || s.interviewStatus === "lulus" || s.interviewStatus === "tidak_lulus"
+            const hasResult = s.interviewStatus === "lulus" || s.interviewStatus === "tidak_lulus"
+            return (
+              <Box
+                key={s.id}
+                bg="white"
+                border="1px solid"
+                borderColor={isExpanded ? "blue.300" : "gray.200"}
+                rounded="xl"
+                p="4"
+                cursor="pointer"
+                onClick={() => setExpandedStudentId(isExpanded ? null : s.id)}
+                transition="all 0.15s"
+                _active={{ transform: "scale(0.99)" }}
+              >
+                <HStack justify="space-between" gap="3">
+                  <HStack gap="3" minW="0">
+                    <Box w="9" h="9" bg="blue.100" rounded="full" display="flex" alignItems="center" justifyContent="center" flexShrink={0}>
+                      <Text fontWeight="bold" fontSize="xs" color="blue.600">{s.nama.slice(0, 2).toUpperCase()}</Text>
+                    </Box>
+                    <Stack gap="0" minW="0">
+                      <Text fontWeight="semibold" fontSize="sm" color="gray.900" truncate>{s.nama}</Text>
+                      <Text fontSize="xs" color="gray.500" truncate>{s.email || "Email belum diisi"}</Text>
+                    </Stack>
+                  </HStack>
+                  <Icon color="gray.500" flexShrink={0}>{isExpanded ? <LuChevronUp /> : <LuChevronDown />}</Icon>
+                </HStack>
+                <HStack mt="3" gap="2" flexWrap="wrap">
+                  <Badge colorPalette="blue" variant="subtle" fontSize="xs">{s.pilihanKelas}</Badge>
+                  {hasResult ? (
+                    <Badge colorPalette={s.interviewStatus === "lulus" ? "green" : "red"} fontSize="xs">{s.interviewStatus === "lulus" ? "Lulus" : "Tidak Lulus"}</Badge>
+                  ) : hasSchedule ? (
+                    <Badge colorPalette="blue" fontSize="xs">Wawancara</Badge>
+                  ) : (
+                    <Badge colorPalette="orange" fontSize="xs">Proses</Badge>
+                  )}
+                </HStack>
+                {isExpanded && (
+                  <Stack gap="3" mt="4" pt="4" borderTop="1px solid" borderColor="gray.100">
+                    <Grid templateColumns="1fr 1fr" gap="3">
+                      <DetailItem label="No HP" value={s.noHp} />
+                      <DetailItem label="Tanggal Daftar" value={safeFormatDate(s.registeredAt)} />
+                      <DetailItem label="Pembayaran" value={s.paymentStatus === "berhasil" ? "Telah Bayar" : s.paymentStatus === "proses" ? "Menunggu Konfirmasi" : "Belum Bayar"} />
+                      <DetailItem label="Daftar Ulang" value={s.interviewStatus === "lulus" ? (s.reRegistrationStatus === "berhasil" ? "Sudah Bayar" : s.reRegistrationStatus === "proses" ? "Proses" : "Belum Bayar") : "-"} />
+                    </Grid>
+                    <HStack gap="2" flexWrap="wrap">
+                      <Button size="sm" colorPalette="blue" variant="outline" onClick={(e) => { e.stopPropagation(); openDetail(s) }}>
+                        <Icon><LuEye /></Icon>
+                        Lihat Detail
+                      </Button>
+                      {hasSchedule ? (
+                        <Button size="sm" variant="outline" colorPalette="blue" onClick={(e) => { e.stopPropagation(); openScheduleModal(s) }}>
+                          <Icon><LuClock /></Icon>
+                          Jadwal Wawancara
+                        </Button>
+                      ) : s.paymentStatus === "berhasil" ? (
+                        <Button size="sm" colorPalette="orange" onClick={(e) => { e.stopPropagation(); openScheduleModal(s) }}>
+                          <Icon><LuCalendar /></Icon>
+                          Buat Jadwal
+                        </Button>
+                      ) : null}
+                      {s.interviewStatus === "lulus" && s.reRegistrationStatus === "proses" && (
+                        <Button size="sm" colorPalette="green" onClick={(e) => { e.stopPropagation(); setReRegModalStudent(s) }}>
+                          <Icon><LuCircleCheck /></Icon>
+                          Konfirmasi Daftar Ulang
+                        </Button>
+                      )}
+                    </HStack>
+                  </Stack>
+                )}
+              </Box>
+            )
+          })}
+          {sorted.length === 0 && <Text textAlign="center" color="gray.500" py="8">Tidak ada data ditemukan</Text>}
+        </Stack>
+
+        <Table.Root display={{ base: "none", md: "table" }}>
           <Table.Header>
             <Table.Row bg="bg.subtle">
               <Table.ColumnHeader fontWeight="semibold" color="gray.500" fontSize="xs" textTransform="uppercase" letterSpacing="wider">#</Table.ColumnHeader>

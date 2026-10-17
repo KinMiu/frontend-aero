@@ -77,7 +77,7 @@ const programs = [
   },
   {
     icon: LuPlane,
-    title: "Skriner AVSEC",
+    title: "Screener AVSEC",
     description:
       "Program diklat lanjutan setelah memiliki lisensi Awal/Guard AVSEC.",
     color: "orange",
@@ -98,7 +98,7 @@ const programs = [
   },
   {
     icon: LuGraduationCap,
-    title: "SVP/Supervisor AVSEC",
+    title: "SPV/Supervisor AVSEC",
     description:
       "Program diklat tertinggi bagi personel pengamanan penerbangan, harus sudah memiliki lisensi Skriner.",
     color: "teal",

@@ -524,7 +524,7 @@ export default function ArticleDetailPage() {
         right="6"
         zIndex="banner"
         as="a"
-        href="https://wa.me/6285267542226?text=Halo%20Aero%20Forte%20Indonesia%2C%20saya%20ingin%20bertanya%20tentang%20pendaftaran"
+        href="https://wa.me/6285212932226?text=Halo%20Aero%20Forte%20Indonesia%2C%20saya%20ingin%20bertanya%20tentang%20pendaftaran"
         target="_blank"
         rel="noopener noreferrer"
         bg="green.500"
